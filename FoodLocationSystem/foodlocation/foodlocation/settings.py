@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'oauth2_provider',
     'drf_yasg',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -51,6 +52,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'foodlocation.urls'
@@ -143,3 +145,5 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 2, #phân trang
 
 }
+
+CORS_ALLOW_ALL_ORIGINS = True
