@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, Food, User
+from .models import MenuItem, Food, User, Tag, PaymentMethod
 from django import forms
 from ckeditor_uploader.widgets import CKEditorUploadingWidget
 # Register your models here.
@@ -19,12 +19,14 @@ class FoodForm(forms.ModelForm):
 
 
 class FoodAdmin(admin.ModelAdmin):
-    list_display = ['pk', 'name', 'category', 'price', 'created_date', 'active']
+    list_display = ['pk', 'name', 'menu_item', 'price', 'created_date', 'active', 'start_time', 'end_time']
     search_fields = ['name']
     form = FoodForm
 
 
 admin.site.register(User, UserAdmin)
-admin.site.register(Category)
+admin.site.register(MenuItem)
 admin.site.register(Food, FoodAdmin)
+admin.site.register(Tag)
+admin.site.register(PaymentMethod)
 
