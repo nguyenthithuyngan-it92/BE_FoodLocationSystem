@@ -10,7 +10,7 @@ from enum import Enum
 
 class User(AbstractUser):
     avatar = models.ImageField(upload_to='users/%Y/%m', null=True)
-    phone = models.CharField(max_length=11)
+    phone = models.CharField(max_length=11, unique=True)
     address = models.CharField(max_length=255, null=True)
 
     name_store = models.CharField(max_length=100, null=True)
@@ -30,7 +30,7 @@ class BaseModel(models.Model):
 class MenuItem(BaseModel):
     name = models.CharField(max_length=100, unique=True)
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    store = models.ForeignKey(User, related_name='menuitem_store', on_delete=models.CASCADE)
 
     def __str__(self):
         return self.name
@@ -110,16 +110,20 @@ class OrderDetail(models.Model):
 class Feedback(BaseModel):
     content = models.TextField(null=True)
 
-    user = models.ForeignKey(User, on_delete=models.PROTECT)
+    user = models.ForeignKey(User, related_name='user', on_delete=models.PROTECT)
     food = models.ForeignKey(Food, on_delete=models.PROTECT)
+    store = models.ForeignKey(User, related_name='feedback_store', on_delete=models.PROTECT)
     rate = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        unique_together = ("user", "store")
 
 
 class Subcribes(models.Model):
     created_date = models.DateTimeField(auto_now_add=True)
 
-    follower = models.ForeignKey(User, related_name='follower', on_delete=models.SET_NULL, null=True)
-    store = models.ForeignKey(User, related_name='store', on_delete=models.SET_NULL, null=True)
+    follower = models.ForeignKey(User, related_name='follower', on_delete=models.CASCADE)
+    store = models.ForeignKey(User, related_name='store', on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ("follower", "store")
