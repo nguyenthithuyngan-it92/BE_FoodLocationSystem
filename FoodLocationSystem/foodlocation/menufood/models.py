@@ -119,8 +119,7 @@ class Feedback(BaseModel):
         unique_together = ("user", "store")
 
 
-class Subcribes(models.Model):
-    created_date = models.DateTimeField(auto_now_add=True)
+class Subcribes(BaseModel):
 
     follower = models.ForeignKey(User, related_name='follower', on_delete=models.CASCADE)
     store = models.ForeignKey(User, related_name='store', on_delete=models.CASCADE)
