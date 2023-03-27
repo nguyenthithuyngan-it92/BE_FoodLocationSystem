@@ -24,7 +24,7 @@ schema_view = get_schema_view(
     openapi.Info(
         title="Food Location API",
         default_version='v1',
-        description="APIs for FoodApp",
+        description="APIs for FoodLocationApp",
         contact=openapi.Contact(email="1951052129ngan@ou.edu.vn"),
         license=openapi.License(name="Thúy Ngân & Kim Ngân@2023"),
     ),

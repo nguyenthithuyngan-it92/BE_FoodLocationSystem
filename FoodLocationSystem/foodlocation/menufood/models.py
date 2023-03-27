@@ -13,8 +13,8 @@ class User(AbstractUser):
     phone = models.CharField(max_length=11, unique=True)
     address = models.CharField(max_length=255, null=True)
 
-    name_store = models.CharField(max_length=100, null=True)
-    is_verify = models.BooleanField(default=False)
+    name_store = models.CharField(max_length=100, null=True, unique=True)
+    is_verify = models.BooleanField(default=False, null=True)
 
 
 class BaseModel(models.Model):
@@ -44,7 +44,7 @@ class Food(BaseModel):
     start_time = models.TimeField(null=True)
     end_time = models.TimeField(null=True)
 
-    menu_item = models.ForeignKey(MenuItem, on_delete=models.PROTECT)
+    menu_item = models.ForeignKey('MenuItem', on_delete=models.PROTECT)
     tags = models.ManyToManyField('Tag', related_name='foods')
 
     def __str__(self):
