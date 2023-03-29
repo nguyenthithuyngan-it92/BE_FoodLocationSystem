@@ -1,14 +1,43 @@
 from rest_framework import viewsets, permissions, generics, parsers, status
 from rest_framework.decorators import action
 from rest_framework.views import Response
-from .models import Food, User, MenuItem
-from .serializers import FoodSerializer, UserSerializer, StoreSerializer, MenuItemSerializer, FoodDetailsSerializer
+from .models import Food, User, MenuItem, Tag
+from .serializers import FoodSerializer, UserSerializer, StoreSerializer, MenuItemSerializer, FoodDetailsSerializer, TagSerializers
+from . import paginators
 from .paginators import StorePaginator
+
+
+class TagViewSet(viewsets.ModelViewSet):
+    queryset = Tag.objects.filter(active=True)
+    serializer_class = TagSerializers
+    pagination_class = paginators.BaseCustomPaginator
 
 
 class FoodViewSet(viewsets.ViewSet, generics.RetrieveAPIView, generics.ListAPIView):
     queryset = Food.objects.filter(active=True)
-    serializer_class = FoodDetailsSerializer
+    serializer_class = FoodSerializer
+    pagination_class = paginators.BaseCustomPaginator
+
+    def get_queryset(self):
+        q = self.queryset
+
+        name = self.request.query_params.get('name')
+        if name:
+            q = q.filter(name__icontains=name)
+
+        tags = self.request.query_params.get('tags')
+        if tags:
+            q = q.filter(tags=tags)
+
+        price = self.request.query_params.get('price')
+        if price:
+            q = q.filter(price=price)
+
+        # store_id = self.request.query_params.get('store_id')
+        # if store_id:
+        #     q = q.filter(store_id=store_id)
+
+        return q
 
 
 class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):

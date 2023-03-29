@@ -1,9 +1,16 @@
 from rest_framework import serializers
-from .models import Food, User, MenuItem
+from .models import Food, User, MenuItem, Tag
+
+
+class TagSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = ['id', 'name']
 
 
 class FoodSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField(source='image')
+    tags = TagSerializers(many=True)
 
     def get_image(self, food):
         if food.image:
@@ -12,7 +19,7 @@ class FoodSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Food
-        fields = ['id', 'name', 'created_date', 'price','active', 'start_time', 'end_time', 'description', 'image', 'menu_item']
+        fields = ['id', 'name', 'price', 'start_time', 'end_time', 'description', 'image', 'menu_item', 'tags']
 
 
 class FoodDetailsSerializer(FoodSerializer):
