@@ -44,7 +44,7 @@ class Food(BaseModel):
     start_time = models.TimeField(null=True)
     end_time = models.TimeField(null=True)
 
-    menu_item = models.ForeignKey('MenuItem', on_delete=models.PROTECT)
+    menu_item = models.ForeignKey('MenuItem', related_name='menuitem_food', on_delete=models.PROTECT)
     tags = models.ManyToManyField('Tag', related_name='foods')
 
     def __str__(self):

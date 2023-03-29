@@ -4,6 +4,7 @@ from . import views
 from .admin import admin_site
 
 router = routers.DefaultRouter()
+router.register('tags', views.TagViewSet, basename='tag')
 router.register('foods', views.FoodViewSet, basename='food')
 router.register('users', views.UserViewSet, basename='user')
 
