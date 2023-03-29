@@ -16,3 +16,7 @@ class BaseCustomPaginator(pagination.PageNumberPagination):
             'page_size': self.get_page_size(self.request),
             'results': data
         })
+
+
+class StorePaginator(pagination.PageNumberPagination):
+    page_size = 5
