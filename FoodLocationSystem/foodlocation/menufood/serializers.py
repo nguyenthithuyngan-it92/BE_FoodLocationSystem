@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Food, User
+from .models import Food, User, MenuItem
 
 
 class FoodSerializer(serializers.ModelSerializer):
@@ -13,6 +13,14 @@ class FoodSerializer(serializers.ModelSerializer):
     class Meta:
         model = Food
         fields = ['id', 'name', 'created_date', 'price','active', 'start_time', 'end_time', 'description', 'image', 'menu_item']
+
+
+class FoodDetailsSerializer(FoodSerializer):
+    # tags = TagSerializer(many=True)
+
+    class Meta:
+        model = FoodSerializer.Meta.model
+        fields = FoodSerializer.Meta.fields
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -32,8 +40,21 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'avatar', 'image', 'phone', 'email']
+        fields = '__all__'
         extra_kwargs = {
             'avatar': {'write_only': True},
             'password': {'write_only': True}
         }
+
+
+class MenuItemSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = MenuItem
+        fields = '__all__'
+
+
+class StoreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'name_store', 'is_active', 'address', 'is_verify']

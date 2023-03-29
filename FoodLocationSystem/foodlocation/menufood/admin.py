@@ -54,7 +54,8 @@ class TagAdmin(admin.ModelAdmin):
 
 
 class MenuItemAdmin(admin.ModelAdmin):
-    search_fields = ['name']
+    list_display = ['name', 'store_id', 'active']
+    search_fields = ['name', 'store_id__name_store']
     inlines = [MenuItemFoodInlineAdmin, ]
 
 
