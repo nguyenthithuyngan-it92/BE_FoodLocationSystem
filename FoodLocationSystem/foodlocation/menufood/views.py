@@ -1,14 +1,20 @@
 from rest_framework import viewsets, permissions, generics, parsers, status
 from rest_framework.decorators import action
 from rest_framework.views import Response
-from .models import Food, User, MenuItem
-from .serializers import FoodSerializer, UserSerializer, StoreSerializer, MenuItemSerializer, FoodDetailsSerializer
+from .models import Food, User, MenuItem, Order, OrderDetail
+from .serializers import (
+    UserSerializer, StoreSerializer,
+    MenuItemSerializer,
+    FoodSerializer, FoodDetailsSerializer,
+    OrderSerializer, OrderDetailSerializer
+)
 from .paginators import StorePaginator
+from django.db.models import Count
 
 
 class FoodViewSet(viewsets.ViewSet, generics.RetrieveAPIView, generics.ListAPIView):
-    queryset = Food.objects.filter(active=True)
     serializer_class = FoodDetailsSerializer
+    queryset = Food.objects.filter(active=True)
 
 
 class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
@@ -40,18 +46,22 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView):
     pagination_class = StorePaginator
 
     def get_queryset(self):
-        q = self.queryset
+        menu = self.queryset
+        menu = menu.annotate(
+            menu_count=Count('menuitem_store')
+        )
 
         kw = self.request.query_params.get('kw')
         if kw:
-            q = q.filter(name_store__icontains=kw)
+            menu = menu.filter(name_store__icontains=kw)
 
-        return q
+        return menu
 
     @action(methods=['get'], detail=True, url_path='menu-item')
     def get_menu_item(self, request, pk):
         store = self.get_object()
-        menu_item = store.menuitem_store.filter(active=True)
+        menu_item = store.menuitem_store.filter(active=True).annotate(
+            food_count=Count('menuitem_food'))
 
         kw = request.query_params.get('kw')
         if kw:
@@ -60,9 +70,19 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView):
         return Response(MenuItemSerializer(menu_item, many=True).data, status=status.HTTP_200_OK)
 
 
-class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView):
-    queryset = MenuItem.objects.filter(active=True)
+class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
     serializer_class = MenuItemSerializer
+
+    def get_queryset(self):
+        menu = MenuItem.objects.filter(active=True).annotate(
+            food_count=Count('menuitem_food')
+        )
+
+        kw = self.request.query_params.get('kw')
+        if kw:
+            menu = menu.filter(name__icontains=kw)
+
+        return menu
 
     @action(methods=['get'], detail=True, url_path='foods')
     def get_list_foods(self, request, pk):
@@ -74,4 +94,9 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView):
             food = food.filter(name__icontains=kw)
 
         return Response(FoodSerializer(food, many=True, context={'request': request}).data, status=status.HTTP_200_OK)
+
+
+class OrderViewSet(viewsets.ViewSet, generics.ListAPIView):
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
 
