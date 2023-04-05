@@ -49,7 +49,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'password', 'first_name', 'last_name', 'avatar', 'email', 'phone', 'image',
-                  'name_store', 'address']
+                  'name_store', 'address', 'user_role']
         extra_kwargs = {
             'avatar': {'write_only': True},
             'password': {'write_only': True}
@@ -75,7 +75,7 @@ class StoreSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'name_store', 'is_active', 'address', 'is_verify', 'menu_count']
+        fields = ['id', 'name_store', 'is_active', 'address', 'is_verify', 'menu_count', 'user_role']
 
 
 class PaymentMethodSerializer(serializers.ModelSerializer):

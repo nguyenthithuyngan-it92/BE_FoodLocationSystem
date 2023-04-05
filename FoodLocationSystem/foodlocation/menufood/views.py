@@ -69,7 +69,7 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
 
 
 class StoreViewSet(viewsets.ViewSet, generics.ListAPIView):
-    queryset = User.objects.filter(is_active=True, is_verify=True)
+    queryset = User.objects.filter(is_active=True, is_verify=True, user_role=1)
     serializer_class = StoreSerializer
     pagination_class = paginators.StorePaginator
 
@@ -150,6 +150,7 @@ class OrderViewSet(viewsets.ViewSet, generics.ListCreateAPIView, generics.Retrie
 class OrderDetailViewSet(viewsets.ViewSet, generics.RetrieveUpdateDestroyAPIView):
     queryset = OrderDetail.objects.all()
     serializer_class = OrderDetailSerializer
+    lookup_field = 'id'
 
 
 
