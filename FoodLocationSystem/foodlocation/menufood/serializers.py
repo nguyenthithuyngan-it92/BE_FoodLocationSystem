@@ -1,8 +1,8 @@
 from rest_framework import serializers
-from .models import Food, User, MenuItem, Tag
+from .models import Food, User, MenuItem, Tag, Feedback
 
 
-class TagSerializers(serializers.ModelSerializer):
+class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
         fields = ['id', 'name']
@@ -10,7 +10,7 @@ class TagSerializers(serializers.ModelSerializer):
 
 class FoodSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField(source='image')
-    tags = TagSerializers(many=True)
+    tags = TagSerializer(many=True)
 
     def get_image(self, food):
         if food.image:
@@ -23,7 +23,7 @@ class FoodSerializer(serializers.ModelSerializer):
 
 
 class FoodDetailsSerializer(FoodSerializer):
-    # tags = TagSerializer(many=True)
+    tags = TagSerializer(many=True)
 
     class Meta:
         model = FoodSerializer.Meta.model

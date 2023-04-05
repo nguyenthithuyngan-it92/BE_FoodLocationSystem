@@ -1,5 +1,4 @@
 import enum
-
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from ckeditor.fields import RichTextField
@@ -120,21 +119,8 @@ class Feedback(BaseModel):
 
 
 class Subcribes(BaseModel):
-
     follower = models.ForeignKey(User, related_name='follower', on_delete=models.CASCADE)
     store = models.ForeignKey(User, related_name='store', on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ("follower", "store")
-
-
-
-
-
-
-
-
-
-
-
-

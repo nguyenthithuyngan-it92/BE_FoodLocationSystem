@@ -1,15 +1,25 @@
 from rest_framework import viewsets, permissions, generics, parsers, status
 from rest_framework.decorators import action
 from rest_framework.views import Response
-from .models import Food, User, MenuItem, Tag
-from .serializers import FoodSerializer, UserSerializer, StoreSerializer, MenuItemSerializer, FoodDetailsSerializer, TagSerializers
+from .models import Food, User, MenuItem, Tag, Feedback
+from .serializers import (
+    FoodSerializer,
+    UserSerializer,
+    StoreSerializer,
+    MenuItemSerializer,
+    FoodDetailsSerializer,
+    TagSerializer,
+    FeedbackSerializer,
+    AuthorizedFoodDetailsSerializer
+)
 from . import paginators
 from .paginators import StorePaginator
+from .perms import FeedbackOwner
 
 
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.filter(active=True)
-    serializer_class = TagSerializers
+    serializer_class = TagSerializer
     pagination_class = paginators.BaseCustomPaginator
 
 
@@ -103,4 +113,3 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView):
             food = food.filter(name__icontains=kw)
 
         return Response(FoodSerializer(food, many=True, context={'request': request}).data, status=status.HTTP_200_OK)
-
