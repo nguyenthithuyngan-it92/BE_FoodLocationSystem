@@ -112,16 +112,40 @@ class OrderDetail(models.Model):
     food = models.ForeignKey(Food, on_delete=models.PROTECT)
 
 
-class Feedback(BaseModel):
-    content = models.TextField(null=True)
-
-    user = models.ForeignKey(User, related_name='user', on_delete=models.PROTECT)
+class ActionBase(BaseModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     food = models.ForeignKey(Food, on_delete=models.PROTECT)
-    store = models.ForeignKey(User, related_name='feedback_store', on_delete=models.PROTECT)
-    rate = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
-        unique_together = ("user", "store")
+        abstract = True
+        unique_together = ('food', 'user')
+
+
+class Comment(ActionBase):
+    content = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.content
+
+
+class Like(ActionBase):
+    liked = models.BooleanField(default=True)
+
+
+class Rating(ActionBase):
+    rate = models.SmallIntegerField(default=0)
+
+
+# class Feedback(BaseModel):
+#     content = models.TextField(null=True)
+#
+#     user = models.ForeignKey(User, related_name='user', on_delete=models.PROTECT)
+#     food = models.ForeignKey(Food, on_delete=models.PROTECT)
+#     store = models.ForeignKey(User, related_name='feedback_store', on_delete=models.PROTECT)
+#     rate = models.PositiveSmallIntegerField(default=0)
+#
+#     class Meta:
+#         unique_together = ("user", "store")
 
 
 class Subcribes(BaseModel):
