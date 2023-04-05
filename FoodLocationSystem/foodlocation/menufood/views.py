@@ -4,8 +4,7 @@ from rest_framework.views import Response
 from .models import Food, User, MenuItem, Order, OrderDetail, Tag
 from .serializers import (
     UserSerializer, StoreSerializer,
-    MenuItemSerializer, TagSerializers,
-    FoodSerializer, FoodDetailsSerializer,
+    MenuItemSerializer, TagSerializers, FoodSerializer,
     OrderSerializer, OrderDetailSerializer
 )
 
@@ -21,7 +20,7 @@ class TagViewSet(viewsets.ModelViewSet):
 
 class FoodViewSet(viewsets.ViewSet, generics.RetrieveAPIView, generics.ListAPIView):
     queryset = Food.objects.filter(active=True)
-    serializer_class = FoodDetailsSerializer
+    serializer_class = FoodSerializer
     pagination_class = paginators.BaseCustomPaginator
 
     def get_queryset(self):
@@ -125,7 +124,34 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
         return Response(FoodSerializer(food, many=True, context={'request': request}).data, status=status.HTTP_200_OK)
 
 
-class OrderViewSet(viewsets.ViewSet, generics.ListAPIView):
+class OrderViewSet(viewsets.ViewSet, generics.ListCreateAPIView, generics.RetrieveAPIView):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if serializer.is_valid():
+            # Lưu thông tin đơn hàng
+            order = serializer.save(delivery_fee=15000, order_status=Order.PENDING)
+
+            # Lưu thông tin chi tiết đơn hàng
+            order_details_data = request.data.pop('order_details')
+            for order_detail_data in order_details_data:
+                food_id = order_detail_data.pop('food')
+                food = Food.objects.get(id=food_id)
+                OrderDetail.objects.create(order=order, food=food, **order_detail_data)
+
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class OrderDetailViewSet(viewsets.ViewSet, generics.RetrieveUpdateDestroyAPIView):
+    queryset = OrderDetail.objects.all()
+    serializer_class = OrderDetailSerializer
+
+
+
+
 
