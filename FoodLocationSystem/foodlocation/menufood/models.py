@@ -3,7 +3,7 @@ import enum
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from ckeditor.fields import RichTextField
-from enum import Enum
+from enum import Enum as UserEnum
 
 # Create your models here.
 
@@ -15,6 +15,12 @@ class User(AbstractUser):
 
     name_store = models.CharField(max_length=100, null=True, unique=True)
     is_verify = models.BooleanField(default=False, null=True)
+    USER, STORE = range(2)
+    ROLE = [
+        (USER, "USER"),
+        (STORE, "STORE")
+    ]
+    user_role = models.PositiveSmallIntegerField(choices=ROLE, default=USER)
 
 
 class BaseModel(models.Model):
@@ -75,7 +81,6 @@ class Order(models.Model):
     created_date = models.DateTimeField(auto_now_add=True)
     amount = models.DecimalField(max_digits=10, decimal_places=0)   #tổng tiền thức ăn
     delivery_fee = models.DecimalField(max_digits=6, decimal_places=0)   #phí giao hàng
-    # order_status = models.CharField(choices=[(o.value, o.name) for o in OrderStatus], max_length=10)
 
     PENDING, ACCEPTED, SUCCESSED = range(3)
     STATUS = [
