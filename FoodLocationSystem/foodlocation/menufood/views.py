@@ -149,14 +149,16 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     # lấy danh sách các hóa đơn chưa được xác nhận cho cửa hàng
-    @action(methods=['get'], detail=False, url_path='pedding-order')
-    def get_list_pedding(self, request):
+    @action(methods=['get'], detail=False, url_path='pending-order')
+    def get_list_pending(self, request):
         user = self.request.user
         if user.user_role != User.STORE:
-            return Response({'error': 'User is not a store'})
+            return Response({"message": "Bạn không có quyền thực hiện chức năng này.",
+                             "statusCode": status.HTTP_403_FORBIDDEN},
+                             status=status.HTTP_403_FORBIDDEN)
 
-        # Lấy danh sách các đơn hàng có trạng thái 'PENDING' và không có trường store_id
-        orders = Order.objects.filter(order_status=Order.PENDING).exclude(user__user_role=User.STORE)\
+        # Lấy danh sách các đơn hàng có trạng thái 'PENDING'
+        orders = Order.objects.filter(order_status=Order.PENDING, store=user.id).exclude(user__user_role=User.STORE)\
                                 .select_related('paymentmethod', 'user')
 
         # Lấy các order_detail của các đơn hàng
@@ -174,14 +176,11 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
         # Tạo dictionary để lưu thông tin đơn hàng của từng cửa hàng
         orders_dict = {}
         try:
-            # if stores.get('name_store') == user.name_store:
             for store in stores:
-                if store.id == user.id:
-                    orders_dict[store.id] = {
-                        'store_id': store.id,
-                        'store_name': store.name_store,
-                        'orders': []
-                    }
+                orders_dict[store.id] = {
+                    'store': store.id,
+                    'orders': []
+                }
 
             # Đổ dữ liệu đơn hàng vào các store tương ứng
             for order in orders:
@@ -197,6 +196,8 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                     'payment_method': order.paymentmethod.name,
                     'user_id': order.user.id,
                     'user_name': order.user.username,
+                    'store_id': order.store.id,
+                    'store_name': order.store.name_store,
                     'order_details': []
                 }
 
@@ -204,27 +205,29 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                 for order_detail in order_details.filter(order=order):
                     food = foods.get(id=order_detail.food_id)
                     menu_item = menu_items.get(id=food.menu_item_id)
-                    store = stores.get(id=menu_item.store_id)
+                    # store = stores.get(id=menu_item.store_id)
 
                     order_detail_dict = {
                         'food_id': food.id,
                         'food_name': food.name,
                         'menu_item_id': menu_item.id,
                         'menu_item_name': menu_item.name,
-                        'store_id': store.id,
-                        'store_name': store.name_store,
                         'unit_price': order_detail.unit_price,
                         'quantity': order_detail.quantity
                     }
-                    if store.id == user.id:
-                        order_dict['order_details'].append(order_detail_dict)
+                    # if store.id == user.id:
+                    order_dict['order_details'].append(order_detail_dict)
 
-                if store.id == user.id:
-                    orders_dict[store.id]['orders'].append(order_dict)
+                # if store.id == user.id:
+                orders_dict[store.id]['orders'].append(order_dict)
 
-            return Response(list(orders_dict.values()))
+            return Response({"message": f"Danh sách đơn hàng cần xác nhận của cửa hàng {user.name_store}",
+                             "statusCode": status.HTTP_200_OK, "data": list(orders_dict.values())},
+                            status=status.HTTP_200_OK)
         except Order.DoesNotExist:
-             return Response(status=status.HTTP_404_NOT_FOUND, data={'message': 'Không tìm thấy đơn hàng nào'})
+            return Response({"message": f"Không có đơn hàng cần xác nhận của cửa hàng {user.name_store}.",
+                            "statusCode": status.HTTP_404_NOT_FOUND},
+                            status=status.HTTP_404_NOT_FOUND)
 
     # def get_queryset(self):
     #     user = self.request.user
