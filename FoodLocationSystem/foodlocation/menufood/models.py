@@ -99,6 +99,7 @@ class Order(models.Model):
 
     paymentmethod = models.ForeignKey(PaymentMethod, on_delete=models.PROTECT)
     user = models.ForeignKey(User, on_delete=models.PROTECT)
+    store = models.ForeignKey(User, related_name='store_order', on_delete=models.CASCADE)
 
     def __str__(self):
         return self.receiver_name
@@ -149,7 +150,6 @@ class Rating(ActionBase):
 
 
 class Subcribes(BaseModel):
-
     follower = models.ForeignKey(User, related_name='follower', on_delete=models.CASCADE)
     store = models.ForeignKey(User, related_name='store', on_delete=models.CASCADE)
 
