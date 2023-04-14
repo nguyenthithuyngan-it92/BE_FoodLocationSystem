@@ -128,7 +128,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
     queryset = Order.objects.all()
 
     def get_permissions(self):
-        if self.action in ['create', 'get_list_pending', 'confirm_order']:
+        if self.action in ['create', 'get_list_pending', 'confirm_order', 'get_list_accepted', 'complete_order']:
             return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
@@ -244,6 +244,11 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                 # if store.id == user.id:
                 orders_dict[store.id]['orders'].append(order_dict)
 
+            if not list(orders_dict.values()):
+                return Response({"message": f"Không có đơn hàng cần xác nhận của cửa hàng {user.name_store}.",
+                                 "statusCode": status.HTTP_404_NOT_FOUND},
+                                status=status.HTTP_404_NOT_FOUND)
+
             return Response({"message": f"Danh sách đơn hàng cần xác nhận của cửa hàng {user.name_store}",
                              "statusCode": status.HTTP_200_OK, "data": list(orders_dict.values())},
                             status=status.HTTP_200_OK)
@@ -252,6 +257,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                              "statusCode": status.HTTP_404_NOT_FOUND},
                             status=status.HTTP_404_NOT_FOUND)
 
+    # xác nhận đơn hàng - order_status=ACCEPTED
     @action(methods=['post'], detail=True, url_path='confirm-order')
     def confirm_order(self, request, pk):
         user = request.user
@@ -273,6 +279,120 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                     return Response({'message': f'Đơn hàng {pk} đã được xác nhận thành công!'}, status=status.HTTP_200_OK)
             return Response({'message': f'Đơn hàng {pk} không thuộc quyền xử lý của bạn. Cập nhật không thành công!'},
                             status=status.HTTP_404_NOT_FOUND)
+
+        return Response({'message': f'Đơn hàng {pk} xác nhận không thành công. Vui lòng thử lại!'},
+                        status=status.HTTP_404_NOT_FOUND)
+
+    @action(methods=['get'], detail=False, url_path='accepted-order')
+    def get_list_accepted(self, request):
+        user = self.request.user
+        if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
+            return Response({"message": "Bạn không có quyền thực hiện chức năng này.",
+                             "statusCode": status.HTTP_403_FORBIDDEN},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        # Lấy danh sách các đơn hàng có trạng thái 'ACCEPTED'
+        orders = Order.objects.filter(order_status=Order.ACCEPTED, store=user.id).exclude(user__user_role=User.STORE) \
+            .select_related('paymentmethod', 'user')
+
+        # Lấy các order_detail của các đơn hàng
+        order_details = OrderDetail.objects.filter(order__in=orders).select_related('food')
+
+        # Lấy các món ăn của các order_detail
+        foods = Food.objects.filter(id__in=order_details.values_list('food_id', flat=True)).select_related('menu_item')
+
+        # Lấy các menu item của các món ăn
+        menu_items = MenuItem.objects.filter(id__in=foods.values_list('menu_item_id', flat=True))
+
+        # Lấy các cửa hàng của các menu item
+        stores = User.objects.filter(id__in=menu_items.values_list('store_id', flat=True))
+
+        # Tạo dictionary để lưu thông tin đơn hàng của từng cửa hàng
+        orders_dict = {}
+        try:
+            for store in stores:
+                orders_dict[store.id] = {
+                    'store': store.id,
+                    'orders': []
+                }
+
+            # Đổ dữ liệu đơn hàng vào các store tương ứng
+            for order in orders:
+                order_dict = {
+                    'id': order.id,
+                    'amount': order.amount,
+                    'delivery_fee': order.delivery_fee,
+                    'receiver_name': order.receiver_name,
+                    'receiver_phone': order.receiver_phone,
+                    'receiver_address': order.receiver_address,
+                    'created_date': order.created_date,
+                    'payment_status': order.payment_status,
+                    'payment_method': order.paymentmethod.name,
+                    'user_id': order.user.id,
+                    'user_name': order.user.username,
+                    'store_id': order.store.id,
+                    'store_name': order.store.name_store,
+                    'order_details': []
+                }
+
+                # Thêm thông tin các order_detail vào đơn hàng
+                for order_detail in order_details.filter(order=order):
+                    food = foods.get(id=order_detail.food_id)
+                    menu_item = menu_items.get(id=food.menu_item_id)
+                    # store = stores.get(id=menu_item.store_id)
+
+                    order_detail_dict = {
+                        'food_id': food.id,
+                        'food_name': food.name,
+                        'menu_item_id': menu_item.id,
+                        'menu_item_name': menu_item.name,
+                        'unit_price': order_detail.unit_price,
+                        'quantity': order_detail.quantity
+                    }
+                    # if store.id == user.id:
+                    order_dict['order_details'].append(order_detail_dict)
+
+                # if store.id == user.id:
+                orders_dict[store.id]['orders'].append(order_dict)
+
+            if not list(orders_dict.values()):
+                return Response({"message": f"Không có đơn hàng nào đang được giao của cửa hàng {user.name_store}.",
+                                 "statusCode": status.HTTP_404_NOT_FOUND},
+                                status=status.HTTP_404_NOT_FOUND)
+
+            return Response({"message": f"Danh sách đơn hàng đang được giao của cửa hàng {user.name_store}",
+                             "statusCode": status.HTTP_200_OK, "data": list(orders_dict.values())},
+                            status=status.HTTP_200_OK)
+        except Order.DoesNotExist:
+            return Response({"message": f"Không có đơn hàng nào đang được giao của cửa hàng {user.name_store}.",
+                             "statusCode": status.HTTP_404_NOT_FOUND},
+                            status=status.HTTP_404_NOT_FOUND)
+
+    # xác nhận đơn hàng giao thành công - order_status=SUCCESSED
+    @action(methods=['post'], detail=True, url_path='complete-order')
+    def complete_order(self, request, pk):
+        user = request.user
+        if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
+            return Response({"message": "Bạn không có quyền thực hiện chức năng này."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            order = Order.objects.get(id=pk)
+        except Order.DoesNotExist:
+            return Response({'message': f'Đơn hàng không được tìm thấy hoặc đã được xử lý!'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        if request.method == 'POST':
+            if order.store.id == user.id:
+                if order.order_status == Order.ACCEPTED:
+                    if order.payment_status == 0:
+                        order.order_status = Order.SUCCESSED
+                        order.payment_status = True
+                        order.save()
+                    return Response({'message': f'Đã xác nhận đơn hàng {pk} giao hàng thành công!'},
+                                    status=status.HTTP_200_OK)
+            return Response({'message': f'Đơn hàng {pk} không thuộc quyền xử lý của bạn. Cập nhật không thành công!'},
+                status=status.HTTP_404_NOT_FOUND)
 
         return Response({'message': f'Đơn hàng {pk} xác nhận không thành công. Vui lòng thử lại!'},
                         status=status.HTTP_404_NOT_FOUND)
