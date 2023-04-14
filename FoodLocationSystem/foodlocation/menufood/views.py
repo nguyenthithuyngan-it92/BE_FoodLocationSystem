@@ -126,11 +126,7 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
 class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAPIView, generics.ListAPIView):
     serializer_class = OrderSerializer
     queryset = Order.objects.all()
-
-    def get_permissions(self):
-        if self.action in ['create', 'get_list_pending', 'confirm_order', 'get_list_accepted', 'complete_order']:
-            return [permissions.IsAuthenticated()]
-        return [permissions.AllowAny()]
+    permission_classes = [permissions.IsAuthenticated]
 
     # đặt món - tạo đơn hàng
     def create(self, request):
@@ -170,6 +166,50 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
             return Response({"message": "Đặt hàng thành công!", "data": serializer.data},
                             status=status.HTTP_201_CREATED, headers=headers)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def retrieve(self, request, pk):
+        try:
+            order = Order.objects.get(id=pk)
+            user = request.user
+
+            if user.user_role == User.STORE and order.store != user \
+                    and order.user != user and user.user_role == User.USER:
+                return Response({'error': 'Forbidden', 'message': 'Bạn không có quyền xem đơn hàng này!'}, status=status.HTTP_403_FORBIDDEN)
+
+            data = {
+                'id': order.id,
+                'created_date': order.created_date,
+                'amount': order.amount,
+                'delivery_fee': order.delivery_fee,
+                'order_status': order.order_status,
+                'receiver_name': order.receiver_name,
+                'receiver_phone': order.receiver_phone,
+                'receiver_address': order.receiver_address,
+                'payment_date': order.payment_date,
+                'payment_status': order.payment_status,
+                'paymentmethod': order.paymentmethod.name,
+                'user': order.user.id,
+                'store': order.store.id,
+                'order_details': []
+            }
+
+            for order_detail in order.orderdetail_set.all():
+                order_detail_data = {
+                    'unit_price': order_detail.unit_price,
+                    'quantity': order_detail.quantity,
+                    'food': {
+                        'id': order_detail.food.id,
+                        'name': order_detail.food.name,
+                        'price': order_detail.food.price,
+                        'menu_item': order_detail.food.menu_item.name,
+                    }
+                }
+
+                data['order_details'].append(order_detail_data)
+
+            return Response(data, status=status.HTTP_200_OK)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
 
     # lấy danh sách các hóa đơn chưa được xác nhận cho cửa hàng
     @action(methods=['get'], detail=False, url_path='pending-order')
