@@ -128,7 +128,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
     queryset = Order.objects.all()
 
     def get_permissions(self):
-        if self.action in ['create', 'get_list_pending', 'confirm_order']:
+        if self.action in ['create', 'get_list_pending', 'confirm_order', 'get_list_accepted', 'complete_order']:
             return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
