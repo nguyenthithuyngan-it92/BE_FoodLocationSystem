@@ -87,14 +87,14 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView):
     @action(methods=['get'], detail=True, url_path='menu-item')
     def get_menu_item(self, request, pk):
         store = self.get_object()
-        menu_item = store.menuitem_store.filter(active=True).annotate(
+        menu_items = store.menuitem_store.filter(active=True).annotate(
             food_count=Count('menuitem_food'))
 
         kw = request.query_params.get('kw')
         if kw:
-            menu_item = menu_item.filter(name__icontains=kw)
+            menu_items = menu_items.filter(name__icontains=kw)
 
-        return Response(MenuItemSerializer(menu_item, many=True).data, status=status.HTTP_200_OK)
+        return Response(MenuItemSerializer(menu_items, many=True).data, status=status.HTTP_200_OK)
 
 
 class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
@@ -149,7 +149,8 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                 food_id = order_detail_data.pop('food')
                 food = Food.objects.get(id=food_id)
                 if not food:
-                    return Response({"message": "Món ăn nào được đặt không hợp lệ!"}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"message": "Món ăn nào được đặt không hợp lệ!"},
+                                    status=status.HTTP_400_BAD_REQUEST)
                 if food.active == 0:
                     return Response({"message": f"Món ăn {food.name} hiện tại không còn bán!"},
                                     status=status.HTTP_400_BAD_REQUEST)
@@ -167,6 +168,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                             status=status.HTTP_201_CREATED, headers=headers)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    # xem chi tiết đơn hàng cho user
     def retrieve(self, request, pk):
         try:
             order = Order.objects.get(id=pk)
@@ -174,7 +176,8 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
 
             if user.user_role == User.STORE and order.store != user \
                     and order.user != user and user.user_role == User.USER:
-                return Response({'error': 'Forbidden', 'message': 'Bạn không có quyền xem đơn hàng này!'}, status=status.HTTP_403_FORBIDDEN)
+                return Response({'error': 'Forbidden', 'message': 'Bạn không có quyền xem đơn hàng này!'},
+                                status=status.HTTP_403_FORBIDDEN)
 
             data = {
                 'id': order.id,
@@ -209,7 +212,25 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
 
             return Response(data, status=status.HTTP_200_OK)
         except Order.DoesNotExist:
-            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Không tìm thấy đơn hàng!'}, status=status.HTTP_404_NOT_FOUND)
+
+    # lấy thông tin các đơn hàng của user
+    def list(self, request):
+        try:
+            user = request.user
+            orders = Order.objects.all()
+            if user.user_role == User.STORE:
+                orders = orders.filter(store=user.id)
+            elif user.user_role == User.USER:
+                orders = orders.filter(user=user.id)
+            else:
+                return Response({'error': 'Forbidden', 'message': 'Bạn không có quyền thực hiện chức năng này!'},
+                                status=status.HTTP_403_FORBIDDEN)
+
+            return Response(OrderSerializer(orders, many=True).data, status=status.HTTP_200_OK)
+
+        except Order.DoesNotExist:
+            return Response({'error': 'Bạn không có đơn hàng nào!'}, status=status.HTTP_404_NOT_FOUND)
 
     # lấy danh sách các hóa đơn chưa được xác nhận cho cửa hàng
     @action(methods=['get'], detail=False, url_path='pending-order')
@@ -316,7 +337,8 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                 if order.order_status == Order.PENDING:
                     order.order_status = Order.ACCEPTED
                     order.save()
-                    return Response({'message': f'Đơn hàng {pk} đã được xác nhận thành công!'}, status=status.HTTP_200_OK)
+                    return Response({'message': f'Đơn hàng {pk} đã được xác nhận thành công!'},
+                                    status=status.HTTP_200_OK)
             return Response({'message': f'Đơn hàng {pk} không thuộc quyền xử lý của bạn. Cập nhật không thành công!'},
                             status=status.HTTP_404_NOT_FOUND)
 
@@ -432,7 +454,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                     return Response({'message': f'Đã xác nhận đơn hàng {pk} giao hàng thành công!'},
                                     status=status.HTTP_200_OK)
             return Response({'message': f'Đơn hàng {pk} không thuộc quyền xử lý của bạn. Cập nhật không thành công!'},
-                status=status.HTTP_404_NOT_FOUND)
+                            status=status.HTTP_404_NOT_FOUND)
 
         return Response({'message': f'Đơn hàng {pk} xác nhận không thành công. Vui lòng thử lại!'},
                         status=status.HTTP_404_NOT_FOUND)
