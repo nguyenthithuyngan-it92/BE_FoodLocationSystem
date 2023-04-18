@@ -160,28 +160,16 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
         except MenuItem.DoesNotExist:
             return Response({'error': 'Không tìm thấy menu!'}, status=status.HTTP_404_NOT_FOUND)
 
-    # def delete(self, request, pk):
-    #     try:
-    #         menu = MenuItem.objects.get(id=pk)
-    #         # Lấy thông tin người dùng và kiểm tra quyền truy cập của người dùng
-    #         user = request.user
-    #         if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
-    #             return Response({"message": f"Bạn không có quyền thực hiện chức năng này!"},
-    #                             status=status.HTTP_403_FORBIDDEN)
-    #         if user.is_verify != 1:
-    #             return Response({"message": f"Tài khoản cửa hàng {user.name_store} chưa được chứng thực để thực hiện chức năng xóa menu!"},
-    #                             status=status.HTTP_403_FORBIDDEN)
-    #
-    #         if user == menu.store:
-    #             # Xóa menu item
-    #             super().destroy(menu)
-    #             return Response({"message": f"Xóa thông tin menu thành công!", "statusCode": status.HTTP_204_NO_CONTENT},
-    #                             status=status.HTTP_204_NO_CONTENT)
-    #         return Response({"message": f"Xóa thông tin menu {menu.name} không thành công! Bạn không có quyền xóa menu này"},
-    #                         status=status.HTTP_400_BAD_REQUEST)
-    #
-    #     except MenuItem.DoesNotExist:
-    #         return Response({'error': 'Không tìm thấy menu!'}, status=status.HTTP_404_NOT_FOUND)
+    def destroy(self, request, *args, **kwargs):
+        try:
+            user = request.user
+            if user == self.get_object().store:
+                return super().destroy(request, *args, **kwargs)
+
+            return Response({"message": f"Bạn không có quyền thực hiện chức năng này!"},
+                            status=status.HTTP_403_FORBIDDEN)
+        except MenuItem.DoesNotExist:
+            return Response({'error': 'Không tìm thấy menu!'}, status=status.HTTP_404_NOT_FOUND)
 
     @action(methods=['get'], detail=True, url_path='foods')
     def get_list_foods(self, request, pk):
