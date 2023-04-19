@@ -254,18 +254,19 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView):
 
         if name != "" and price != "":
             food = Food.objects.create(name=name, active=True, price=price, description=description,
-                                start_time=start_time, end_time=end_time,
-                                image=image, menu_item=menu_item)
+                                       start_time=start_time, end_time=end_time,
+                                       image=image, menu_item=menu_item)
+            
             # Gắn tag vào food
             tags = request.data.get("tags")
-            # Lưu các tag được yêu cầu vào món ăn
-            for tag in tags:
-                try:
-                    tag = Tag.objects.get(id=tag['id'])
-                except Tag.DoesNotExist:
-                    return Response({"message": f"Không tìm thấy tag!"},
-                                    status=status.HTTP_404_NOT_FOUND)
-                food.tags.add(tag)
+            if tags is not None:
+                for tag in tags:
+                    try:
+                        tag = Tag.objects.get(id=tag['id'])
+                    except Tag.DoesNotExist:
+                        return Response({"message": f"Không tìm thấy tag!"},
+                                        status=status.HTTP_404_NOT_FOUND)
+                    food.tags.add(tag)
 
             return Response({"message": f"Lưu thông tin món ăn thành công cho cửa hàng {user.name_store}!"},
                             status=status.HTTP_201_CREATED)
