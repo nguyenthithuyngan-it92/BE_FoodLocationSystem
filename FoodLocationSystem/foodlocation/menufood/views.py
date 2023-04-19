@@ -170,7 +170,7 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
             if user == self.get_object().store:
                 return super().destroy(request, *args, **kwargs)
 
-            return Response({"message": f"Bạn không có quyền thực hiện chức năng này!"},
+            return Response({"message": f"Memu này không thuộc quyền xóa của bạn!"},
                             status=status.HTTP_403_FORBIDDEN)
         except MenuItem.DoesNotExist:
             return Response({'error': 'Không tìm thấy menu!'}, status=status.HTTP_404_NOT_FOUND)
@@ -208,13 +208,19 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
             if menu.store.id == user.id:
                 if menu.active == 1:
                     menu.active = 0
+                    for food in menu.menuitem_food.all():
+                        food.active = 0
+                        food.save()
                     menu.save()
-                    return Response({'message': f'Menu {menu.name} đã được tắt trạng thái sẵn bán thành công!'},
+                    return Response({'message': f'Menu và các món ăn trong menu {menu.name} đã được tắt trạng thái sẵn bán thành công!'},
                                     status=status.HTTP_200_OK)
                 if menu.active == 0:
                     menu.active = 1
+                    for food in menu.menuitem_food.all():
+                        food.active = 1
+                        food.save()
                     menu.save()
-                    return Response({'message': f'Menu {menu.name} đã được bật trạng thái sẵn bán thành công!'},
+                    return Response({'message': f'Menu và các món ăn trong menu {menu.name} đã được bật trạng thái sẵn bán thành công!'},
                                     status=status.HTTP_200_OK)
             return Response({'message': f'Menu {menu.name} không thuộc quyền xử lý của bạn. Cập nhật không thành công!'},
                             status=status.HTTP_404_NOT_FOUND)
@@ -288,14 +294,11 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
             if user.is_verify != 1:
                 return Response({"message": f"Tài khoản cửa hàng {user.name_store} chưa được chứng thực để thực hiện chức năng chỉnh sửa món ăn!"},
                                 status=status.HTTP_403_FORBIDDEN)
-            # Lấy MenuItem
-            menu_item_id = request.data.get('menu_item')
-            menu_item = MenuItem.objects.get(pk=menu_item_id)
 
             if request.method == 'PUT':
                 serializer = FoodSerializer(food, data=request.data, partial=True)
                 if serializer.is_valid():
-                    if menu_item.store.id == user.id:
+                    if food.menu_item.store == user:
                         serializer.save()
                         return Response({"message": f"Chỉnh sửa thông tin món ăn thành công  cho cửa hàng {user.name_store}!",
                                          "data": serializer.data},
@@ -315,10 +318,45 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
             if user == self.get_object().menu_item.store:
                 return super().destroy(request, *args, **kwargs)
 
-            return Response({"message": f"Bạn không có quyền thực hiện chức năng này!"},
+            return Response({"message": f"Món ăn này không thuộc quyền xóa của bạn!"},
                             status=status.HTTP_403_FORBIDDEN)
         except Food.DoesNotExist:
             return Response({'error': 'Không tìm thấy món ăn!'}, status=status.HTTP_404_NOT_FOUND)
+
+    # thiết lập trạng thái món ăn (active)
+    @action(methods=['post'], detail=True, url_path='set-status-food')
+    def set_status_food(self, request, pk):
+        user = request.user
+        if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
+            return Response({"message": "Bạn không có quyền thực hiện chức năng này."},
+                            status=status.HTTP_403_FORBIDDEN)
+        if user.is_verify != 1:
+            return Response({"message": f"Tài khoản cửa hàng {user.name_store} chưa được chứng thực để thực hiện chức năng này!"},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            food = Food.objects.get(id=pk)
+        except Food.DoesNotExist:
+            return Response({'message': f'Món ăn không được tìm thấy trong cửa hàng {user.name_store}!'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        if request.method == 'POST':
+            if food.menu_item.store == user:
+                if food.active == 1:
+                    food.active = 0
+                    food.save()
+                    return Response({'message': f'Món ăn {food.name} đã được tắt trạng thái sẵn bán thành công!'},
+                                    status=status.HTTP_200_OK)
+                if food.active == 0:
+                    food.active = 1
+                    food.save()
+                    return Response({'message': f'Món ăn {food.name} đã được bật trạng thái sẵn bán thành công!'},
+                                    status=status.HTTP_200_OK)
+            return Response({'message': f'Món ăn {food.name} không thuộc quyền xử lý của bạn. Cập nhật không thành công!'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        return Response({'message': f'Món ăn {food.name} cập nhật trạng thái không thành công. Vui lòng thử lại!'},
+                        status=status.HTTP_404_NOT_FOUND)
 
 
 class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAPIView, generics.ListAPIView):
