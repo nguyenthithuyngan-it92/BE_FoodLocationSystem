@@ -113,10 +113,11 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
         return menu
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'delete', 'destroy']:
+        if self.action in ['create', 'update', 'delete', 'destroy', 'set_status_menu']:
             return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
+    # tạo menu cho từng cửa hàng đăng nhập vào
     def create(self, request):
         # Lấy thông tin người dùng và kiểm tra quyền truy cập của người dùng
         user = request.user
@@ -135,6 +136,7 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
                             status=status.HTTP_201_CREATED)
         return Response({"message": "Lưu thông tin menu không thành công!"}, status=status.HTTP_400_BAD_REQUEST)
 
+    # chỉnh sửa menu cho từng cửa hàng đăng nhập vào
     def update(self, request, pk):
         try:
             menu = MenuItem.objects.get(id=pk)
@@ -160,6 +162,7 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
         except MenuItem.DoesNotExist:
             return Response({'error': 'Không tìm thấy menu!'}, status=status.HTTP_404_NOT_FOUND)
 
+    # xóa menu cho từng cửa hàng đăng nhập vào
     def destroy(self, request, *args, **kwargs):
         try:
             user = request.user
@@ -171,6 +174,7 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
         except MenuItem.DoesNotExist:
             return Response({'error': 'Không tìm thấy menu!'}, status=status.HTTP_404_NOT_FOUND)
 
+    # lấy danh sách các món ăn của từng menu
     @action(methods=['get'], detail=True, url_path='foods')
     def get_list_foods(self, request, pk):
         menu = self.get_object()
@@ -181,6 +185,41 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
             food = food.filter(name__icontains=kw)
 
         return Response(FoodSerializer(food, many=True, context={'request': request}).data, status=status.HTTP_200_OK)
+
+    # thiết lập trạng thái menu (active)
+    @action(methods=['post'], detail=True, url_path='set-status-menu')
+    def set_status_menu(self, request, pk):
+        user = request.user
+        if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
+            return Response({"message": "Bạn không có quyền thực hiện chức năng này."},
+                            status=status.HTTP_403_FORBIDDEN)
+        if user.is_verify != 1:
+            return Response({"message": f"Tài khoản cửa hàng {user.name_store} chưa được chứng thực để thực hiện chức năng này!"},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            menu = MenuItem.objects.get(id=pk)
+        except MenuItem.DoesNotExist:
+            return Response({'message': f'Menu không được tìm thấy trong cửa hàng {user.name_store}!'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        if request.method == 'POST':
+            if menu.store.id == user.id:
+                if menu.active == 1:
+                    menu.active = 0
+                    menu.save()
+                    return Response({'message': f'Menu {menu.name} đã được tắt trạng thái sẵn bán thành công!'},
+                                    status=status.HTTP_200_OK)
+                if menu.active == 0:
+                    menu.active = 1
+                    menu.save()
+                    return Response({'message': f'Menu {menu.name} đã được bật trạng thái sẵn bán thành công!'},
+                                    status=status.HTTP_200_OK)
+            return Response({'message': f'Menu {menu.name} không thuộc quyền xử lý của bạn. Cập nhật không thành công!'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        return Response({'message': f'Menu {menu.name} cập nhật trạng thái không thành công. Vui lòng thử lại!'},
+                        status=status.HTTP_404_NOT_FOUND)
 
 
 class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAPIView, generics.ListAPIView):
