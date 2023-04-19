@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions, generics, parsers, status
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from rest_framework.views import Response
 from .models import Food, User, MenuItem, Order, OrderDetail, Tag
@@ -222,10 +223,13 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
                         status=status.HTTP_404_NOT_FOUND)
 
 
-class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView):
+class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.RetrieveAPIView, generics.DestroyAPIView):
     serializer_class = FoodSerializer
+    queryset = Food.objects.all()
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
+    # tạo món ăn cho từng cửa hàng đăng nhập vào
     def create(self, request):
         # Lấy thông tin người dùng và kiểm tra quyền truy cập của người dùng
         user = request.user
@@ -256,7 +260,7 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView):
             food = Food.objects.create(name=name, active=True, price=price, description=description,
                                        start_time=start_time, end_time=end_time,
                                        image=image, menu_item=menu_item)
-            
+
             # Gắn tag vào food
             tags = request.data.get("tags")
             if tags is not None:
@@ -272,23 +276,49 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView):
                             status=status.HTTP_201_CREATED)
         return Response({"message": "Lưu thông tin món ăn không thành công!"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # serializer = FoodSerializer(data=request.data)
-        # if serializer.is_valid():
-        #     food = serializer.save(menu_item=menu_item)
-        #
-        #     # Gắn tag vào food
-        #     tags = request.data.get("tags")
-        #     if tags is not None:
-        #         for tag in tags:
-        #             tags = Tag.objects.filter(pk__in=tag)
-        #             food.tags.add(tags)
-        #         food.save()
-        #
-        #     return Response(serializer.data,
-        #                     {"message": "Lưu thông tin món ăn thành công!", "data": request.data},
-        #                     status=status.HTTP_201_CREATED)
-        #
-        # return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    # chỉnh sửa món ăn cho từng cửa hàng đăng nhập vào
+    def update(self, request, pk):
+        try:
+            food = Food.objects.get(id=pk)
+            # Lấy thông tin người dùng và kiểm tra quyền truy cập của người dùng
+            user = request.user
+            if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
+                return Response({"message": f"Bạn không có quyền thực hiện chức năng này!"},
+                                status=status.HTTP_403_FORBIDDEN)
+            if user.is_verify != 1:
+                return Response({"message": f"Tài khoản cửa hàng {user.name_store} chưa được chứng thực để thực hiện chức năng chỉnh sửa món ăn!"},
+                                status=status.HTTP_403_FORBIDDEN)
+            # Lấy MenuItem
+            menu_item_id = request.data.get('menu_item')
+            menu_item = MenuItem.objects.get(pk=menu_item_id)
+
+            if request.method == 'PUT':
+                serializer = FoodSerializer(food, data=request.data, partial=True)
+                if serializer.is_valid():
+                    if menu_item.store.id == user.id:
+                        serializer.save()
+                        return Response({"message": f"Chỉnh sửa thông tin món ăn thành công  cho cửa hàng {user.name_store}!",
+                                         "data": serializer.data},
+                                        status=status.HTTP_200_OK)
+                    return Response({"message": f"Không tìm thấy menu phù hợp của cửa hàng {user.name_store}! Vui lòng thử lại!"},
+                                    status=status.HTTP_404_NOT_FOUND)
+
+            return Response({"message": "Chỉnh sửa thông tin món ăn không thành công!"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        except Food.DoesNotExist:
+            return Response({'error': 'Không tìm thấy món ăn!'}, status=status.HTTP_404_NOT_FOUND)
+
+    # xóa món ăn cho từng cửa hàng đăng nhập vào
+    def destroy(self, request, *args, **kwargs):
+        try:
+            user = request.user
+            if user == self.get_object().menu_item.store:
+                return super().destroy(request, *args, **kwargs)
+
+            return Response({"message": f"Bạn không có quyền thực hiện chức năng này!"},
+                            status=status.HTTP_403_FORBIDDEN)
+        except Food.DoesNotExist:
+            return Response({'error': 'Không tìm thấy món ăn!'}, status=status.HTTP_404_NOT_FOUND)
 
 
 class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAPIView, generics.ListAPIView):
