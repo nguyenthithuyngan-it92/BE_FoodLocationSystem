@@ -27,7 +27,27 @@ class FoodDetailsSerializer(FoodSerializer):
 
     class Meta:
         model = FoodSerializer.Meta.model
-        fields = FoodSerializer.Meta.fields
+        fields = FoodSerializer.Meta.fields + ['content', 'tags']
+
+
+class AuthorizedFoodDetailsSerializer(FoodDetailsSerializer):
+    liked = serializers.SerializerMethodField()
+    rate = serializers.SerializerMethodField()
+
+    def get_liked(self, food):
+        request = self.context.get('request')
+        if request:
+            return food.like_set.filter(user=request.user, liked=True).exists()
+
+    def get_rate(self, food):
+        request = self.context.get('request')
+        if request:
+            r = food.rating_set.filter(user=request.user).first()
+            return r.rate if r else 0
+
+    class Meta:
+        model = FoodSerializer.Meta.model
+        fields = FoodSerializer.Meta.fields + ['liked', 'rate']
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -99,4 +119,12 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = ['id', 'created_date', 'amount', 'delivery_fee', 'order_status', 'receiver_name',
                   'receiver_phone', 'receiver_address', 'payment_date', 'payment_status',
-                  'paymentmethod', 'user', 'order_details']
+                  'paymentmethod', 'user', 'store', 'order_details']
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+
+    class Meta:
+        model = Comment
+        fields = ["id", "content", "created_date", "user"]

@@ -110,6 +110,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+
 # Internationalization
 # https://docs.djangoproject.com/en/4.1/topics/i18n/
 
@@ -141,12 +142,14 @@ MEDIA_ROOT = '%s/menufood/static/' % BASE_DIR
 AUTH_USER_MODEL = 'menufood.User'
 
 REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
+    ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 2, #phân trang
-
+    'PAGE_SIZE': 4, #phân trang
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-CLIENT_ID = 'aG3JcmC982Bp62P8gFqvluaGd58uiwrGebudvlBG'
-CLIENT_SECRET = 'vpassvk3PcZN0sQLBuEz9aqcl66BCTLHdY66KgksagKUqHtYXHJemWjtNjwW8fW3tkMuaZHudg76KTM8BTDMbNUDollA6iMG4eeN1KPQ0V5i62gkTyiIKuctGr7SiyTB'
+CLIENT_ID = 'PKcxCq2Xmb76FjBgiUgNdJvtH7go7D6zWOOHbrGo'
+CLIENT_SECRET = '7khowuZV4Vr8NKjXdQi2DaxUQBeHqjdhRwXgIzqDyqduEp7DPSeWTXvuViQ463pJnFdBtepOWBqCATBoyl6dGfu4qTqauU2kbPSLCKjPF2YVDXg3wJH41KjEsbFArzSK'
