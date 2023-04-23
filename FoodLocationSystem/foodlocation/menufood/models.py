@@ -33,7 +33,7 @@ class BaseModel(models.Model):
 
 #danh mục của từng cửa hàng
 class MenuItem(BaseModel):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
 
     store = models.ForeignKey(User, related_name='menuitem_store', on_delete=models.CASCADE)
 
