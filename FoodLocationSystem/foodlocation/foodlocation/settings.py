@@ -87,7 +87,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'foodlocaiondb',
         'USER': 'root',
-        'PASSWORD': '123456',
+        'PASSWORD': '2107',
         'HOST': ''  # mặc định localhost
     }
 }
@@ -141,12 +141,22 @@ MEDIA_ROOT = '%s/menufood/static/' % BASE_DIR
 AUTH_USER_MODEL = 'menufood.User'
 
 REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
+    ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 2, #phân trang
-
+    'PAGE_SIZE': 8,  # phân trang
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-CLIENT_ID = 'aG3JcmC982Bp62P8gFqvluaGd58uiwrGebudvlBG'
-CLIENT_SECRET = 'vpassvk3PcZN0sQLBuEz9aqcl66BCTLHdY66KgksagKUqHtYXHJemWjtNjwW8fW3tkMuaZHudg76KTM8BTDMbNUDollA6iMG4eeN1KPQ0V5i62gkTyiIKuctGr7SiyTB'
+# CLIENT_ID = 'PX1L78DG7sjxUgndorfk2LTH8ye0jOWbcpRON1lI'
+# CLIENT_SECRET = 'e2X37hXDnWDK1i2sNjCocfUqiDD6siUZKbB52xVjZ9yc2jYKE3PTtNvUNvPPukBGbKda5Iq9mU9L5aWiLZ0mkYpEprjJNkL6bkqnO3Rz4LxCrYDdgyE4Hpef1CL6P6IV'
+
+# config send email
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'foodlocationapp@gmail.com' # Thay bằng email của bạn
+EMAIL_HOST_PASSWORD = 'auwhudaioiziwhff' # Thay bằng password của bạn
