@@ -1,5 +1,5 @@
 from rest_framework import viewsets, permissions, generics, parsers, status
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action, permission_classes
 from rest_framework.views import Response
 from .models import Food, User, MenuItem, Order, OrderDetail, Tag, Comment, Like, Rating, Subcribes, PaymentMethod
@@ -323,7 +323,7 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
     serializer_class = FoodSerializer
     queryset = Food.objects.all()
     permission_classes = [permissions.IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     # tạo món ăn cho từng cửa hàng đăng nhập vào
     def create(self, request):
