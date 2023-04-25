@@ -2,21 +2,30 @@ from rest_framework import viewsets, permissions, generics, parsers, status
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action, permission_classes
 from rest_framework.views import Response
-from .models import Food, User, MenuItem, Order, OrderDetail, Tag, PaymentMethod
+from .models import Food, User, MenuItem, Order, OrderDetail, Tag, Comment, Like, Rating, Subcribes, PaymentMethod
 from .serializers import (
-    UserSerializer, StoreSerializer,
-    MenuItemSerializer, TagSerializers, FoodSerializer,
-    OrderSerializer, OrderDetailSerializer, PaymentMethodSerializer
+    FoodSerializer,
+    FoodDetailsSerializer,
+    UserSerializer,
+    StoreSerializer,
+    MenuItemSerializer,
+    TagSerializer,
+    OrderSerializer,
+    OrderDetailSerializer,
+    AuthorizedFoodDetailsSerializer,
+    SubcribeSerializer,
+    CommentSerializer,
+    PaymentMethodSerializer
 )
-
 from . import paginators
+from .perms import CommentOwner
 from django.db.models import Count
 from django.core.mail import send_mail, EmailMessage
 
 
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.filter(active=True)
-    serializer_class = TagSerializers
+    serializer_class = TagSerializer
     pagination_class = paginators.BaseCustomPaginator
 
 
@@ -45,6 +54,86 @@ class FoodViewSet(viewsets.ViewSet, generics.RetrieveAPIView, generics.ListAPIVi
         #     q = q.filter(store_id=store_id)
 
         return q
+
+    def get_permissions(self):
+        if self.action in ['assign_tags', 'comments', 'like', 'rating']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
+    def get_serializer_class(self):
+        if self.request.user.is_authenticated:
+            return AuthorizedFoodDetailsSerializer
+
+        return self.serializer_class
+
+    @action(methods=['post'], detail=True, url_path='tags')
+    def assign_tags(self, request, pk):
+        food = self.get_object()
+        tags = request.data['tags']
+        for t in tags:
+            tag, _ = Tag.objects.get_or_create(name=t)
+            food.tags.add(tag)
+        food.save()
+
+        return Response(FoodDetailsSerializer(food, context={'request': request}).data)
+
+    @action(methods=['post'], detail=True, url_path='comments')
+    def comments(self, request, pk):
+        c = Comment(content=request.data['content'], food=self.get_object(), user=request.user)
+        c.save()
+
+        return Response(CommentSerializer(c).data, status=status.HTTP_201_CREATED)
+
+    @action(methods=['post'], detail=True, url_path='like')
+    def like(self, request, pk):
+        l, created = Like.objects.get_or_create(food=self.get_object(), user=request.user)
+        if not created:
+            l.liked = not l.liked
+        l.save()
+
+        return Response(status=status.HTTP_200_OK)
+
+    @action(methods=['post'], detail=True, url_path='rating')
+    def rating(self, request, pk):
+        r, _ = Rating.objects.get_or_create(food=self.get_object(), user=request.user)
+        r.rate = request.data['rate']
+        r.save()
+
+        return Response(status=status.HTTP_200_OK)
+
+    # @action(methods=['post'], detail=True, url_path='rating')
+    # def create_review(self, request, pk):
+    #     serializer = ReviewSerializer(data=request.data)
+    #     if serializer.is_valid():
+    #         food_id = serializer.validated_data['food_id']
+    #         store_id = serializer.validated_data['store_id']
+    #         rating = serializer.validated_data['rating']
+    #         # comment = serializer.validated_data['comment']
+    #
+    #         try:
+    #             food = Food.objects.get(pk=food_id)
+    #         except Food.DoesNotExist:
+    #             return Response({'error': 'Món ăn không tồn tại!!!'}, status=status.HTTP_400_BAD_REQUEST)
+    #
+    #         try:
+    #             store = User.objects.get(pk=store_id, user_role=User.STORE)
+    #         except User.DoesNotExist:
+    #             return Response({'error': 'Cửa hàng không tồn tại!!!'}, status=status.HTTP_400_BAD_REQUEST)
+    #
+    #         user = request.user
+    #         #Kiểm tra người dùng đã đánh giá món ăn này chưa
+    #         try:
+    #             rating_obj = Rating.objects.get(user=user, food=food)
+    #         except Rating.DoesNotExist:
+    #             rating_obj = Rating(user=user, food=food)
+    #
+    #         rating_obj.rate = rating
+    #         rating_obj.save()
+    #         # #Tạo comment mới
+    #         # comment_obj = Comment(user=user, food=food, content=comment)
+    #         # comment_obj.save()
+    #         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    #     return Response(serializer.dat, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
@@ -729,3 +818,47 @@ class OrderDetailViewSet(viewsets.ViewSet, generics.RetrieveUpdateDestroyAPIView
     queryset = OrderDetail.objects.all()
     serializer_class = OrderDetailSerializer
     lookup_field = 'id'
+
+
+class CommentViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPIView, generics.UpdateAPIView):
+    queryset = Comment.objects.filter(active=True)
+    serializer_class = CommentSerializer
+    permission_classes = [CommentOwner, ]
+
+
+class SubcribeViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPIView, generics.UpdateAPIView):
+    queryset = Subcribes.objects.filter(active=True)
+    serializer_class = SubcribeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        try:
+            follower = request.user
+            store_id = request.data.get('store_id')
+            store = User.objects.get(id=store_id)
+
+            sub = Subcribes.objects.create(follower=follower, store=store)
+
+            # serializer = SubcribeSerializer(sub)
+            return Response(request.data, status=status.HTTP_201_CREATED)
+        except User.DoesNotExist:
+            return Response({'message': 'Người dùng không tồn tại!'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, sub_id):
+        try:
+            sub = Subcribes.objects.get(id=sub_id)
+
+            #Check permission
+            if request.user != sub.follower:
+                return Response({'message': 'Bạn không có quyền để xóa!'}, status=status.HTTP_401_UNAUTHORIZED)
+
+            sub.delete()
+
+            return Response({'message': 'Hủy theo dõi thành công!!!'}, status=status.HTTP_200_OK)
+
+        except Subcribes.DoesNotExist:
+            return Response({'message': 'Theo dõi không được tìm thấy!'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
