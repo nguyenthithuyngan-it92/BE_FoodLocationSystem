@@ -1,8 +1,8 @@
 from rest_framework import viewsets, permissions, generics, parsers, status
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.decorators import action
+from rest_framework.decorators import action, permission_classes
 from rest_framework.views import Response
-from .models import Food, User, MenuItem, Order, OrderDetail, Tag, Comment, Like, Rating, Subcribes
+from .models import Food, User, MenuItem, Order, OrderDetail, Tag, Comment, Like, Rating, Subcribes, PaymentMethod
 from .serializers import (
     FoodSerializer,
     FoodDetailsSerializer,
@@ -14,11 +14,13 @@ from .serializers import (
     OrderDetailSerializer,
     AuthorizedFoodDetailsSerializer,
     SubcribeSerializer,
-    CommentSerializer
+    CommentSerializer,
+    PaymentMethodSerializer
 )
 from . import paginators
 from .perms import CommentOwner
 from django.db.models import Count
+from django.core.mail import send_mail, EmailMessage
 
 
 class TagViewSet(viewsets.ModelViewSet):
@@ -369,6 +371,7 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
             return Response({"message": f"Lưu thông tin món ăn thành công cho cửa hàng {user.name_store}!"},
                             status=status.HTTP_201_CREATED)
         return Response({"message": "Lưu thông tin món ăn không thành công!"}, status=status.HTTP_400_BAD_REQUEST)
+
 
     # chỉnh sửa món ăn cho từng cửa hàng đăng nhập vào
     def update(self, request, pk):
@@ -775,6 +778,33 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                         order.order_status = Order.SUCCESSED
                         order.payment_status = True
                         order.save()
+
+                        # send mail
+                        email = order.user.email
+                        subject = "Xác nhận đơn hàng đã được giao thành công"
+                        content = """
+                            Chào {0},
+                            Chúng tôi đã ghi nhận thanh toán của bạn.
+                            Chi tiết:
+                            Mã đơn hàng: {1}
+                            Tên cửa hàng: {2}
+                            Tên khách hàng nhận: {3}
+                            Địa chỉ giao hàng: {4}
+                            Tổng thanh toán: {5:,.0f} VND
+                            Hình thức thanh toán: {6}
+                            Ngày thanh toán: {7}
+                            Cám ơn bạn đã tin tưởng chọn dịch vụ của chúng tôi.
+                            Mọi thắc mắc và yêu cầu hỗ trợ xin gửi về địa chỉ foodlocationapp@gmail.com.
+                            """.format(order.user.first_name + " " + order.user.last_name,
+                                       order.pk, order.store.name_store,
+                                       order.receiver_name, order.receiver_address,
+                                       order.amount, order.paymentmethod.name, order.payment_date)
+                        if email and subject and content:
+                            send_email = EmailMessage(subject, content, to=[email])
+                            send_email.send()
+                            return Response(data={"message": "Gửi mail thành công! Đã xác nhận đơn hàng giao hàng thành công!"},
+                                            status=status.HTTP_200_OK)
+
                     return Response({'message': f'Đã xác nhận đơn hàng {pk} giao hàng thành công!'},
                                     status=status.HTTP_200_OK)
             return Response({'message': f'Đơn hàng {pk} không thuộc quyền xử lý của bạn. Cập nhật không thành công!'},

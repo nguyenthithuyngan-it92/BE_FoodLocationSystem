@@ -146,10 +146,20 @@ REST_FRAMEWORK = {
         'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 4, #phân trang
+
+    'PAGE_SIZE': 8,  # phân trang
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
 
 CLIENT_ID = 'PKcxCq2Xmb76FjBgiUgNdJvtH7go7D6zWOOHbrGo'
 CLIENT_SECRET = '7khowuZV4Vr8NKjXdQi2DaxUQBeHqjdhRwXgIzqDyqduEp7DPSeWTXvuViQ463pJnFdBtepOWBqCATBoyl6dGfu4qTqauU2kbPSLCKjPF2YVDXg3wJH41KjEsbFArzSK'
+
+# config send email
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'foodlocationapp@gmail.com' # Thay bằng email của bạn
+EMAIL_HOST_PASSWORD = 'auwhudaioiziwhff' # Thay bằng password của bạn
+

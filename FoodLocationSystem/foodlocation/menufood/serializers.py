@@ -127,7 +127,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = ["id", "content", "created_date", "user"]
+        fields = ['id', 'content', 'created_date', 'user']
 
 
 # class ReviewSerializer(serializers.ModelSerializer):
@@ -141,7 +141,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
 
 class SubcribeSerializer(serializers.ModelSerializer):
-    user = UserSerializer()
+    follower = UserSerializer()
 
     class Meta:
         model = Subcribes
