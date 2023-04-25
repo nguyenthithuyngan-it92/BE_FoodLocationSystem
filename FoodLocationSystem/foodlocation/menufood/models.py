@@ -22,6 +22,9 @@ class User(AbstractUser):
     ]
     user_role = models.PositiveSmallIntegerField(choices=ROLE, default=USER)
 
+    def __str__(self):
+        return self.username
+
 
 class BaseModel(models.Model):
     created_date = models.DateTimeField(auto_now_add=True)
@@ -36,7 +39,7 @@ class BaseModel(models.Model):
 class MenuItem(BaseModel):
     name = models.CharField(max_length=100)
 
-    store = models.ForeignKey(User, related_name='menuitem_store', on_delete=models.CASCADE)
+    store = models.ForeignKey(User, related_name='menuitem_store', on_delete=models.CASCADE, limit_choices_to={'user_role': User.STORE})
 
     def __str__(self):
         return self.name
@@ -150,8 +153,8 @@ class Rating(ActionBase):
 
 
 class Subcribes(BaseModel):
-    follower = models.ForeignKey(User, related_name='follower', on_delete=models.CASCADE)
-    store = models.ForeignKey(User, related_name='store', on_delete=models.CASCADE)
+    follower = models.ForeignKey(User, related_name='follower', on_delete=models.CASCADE, limit_choices_to={'user_role': User.USER})
+    store = models.ForeignKey(User, related_name='store', on_delete=models.CASCADE, limit_choices_to={'user_role': User.STORE})
 
     class Meta:
         unique_together = ("follower", "store")

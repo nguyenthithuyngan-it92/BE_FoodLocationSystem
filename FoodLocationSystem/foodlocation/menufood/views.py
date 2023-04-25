@@ -697,7 +697,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                             Chào {0},
                             Chúng tôi đã ghi nhận thanh toán của bạn.
                             Chi tiết:
-                            Mã thanh toán: {1}
+                            Mã đơn hàng: {1}
                             Tên cửa hàng: {2}
                             Tên khách hàng nhận: {3}
                             Địa chỉ giao hàng: {4}
