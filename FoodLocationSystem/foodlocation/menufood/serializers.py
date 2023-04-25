@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Food, User, MenuItem, Order, OrderDetail, Tag, PaymentMethod, Comment
+from .models import Food, User, MenuItem, Order, OrderDetail, Tag, PaymentMethod, Comment, Subcribes, Rating
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -128,3 +128,21 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ["id", "content", "created_date", "user"]
+
+
+# class ReviewSerializer(serializers.ModelSerializer):
+#     food_id = serializers.IntegerField()
+#     store_id = serializers.IntegerField()
+#     rating = serializers.IntegerField(min_value=1, max_value=5, default=0)
+#
+#     class Meta:
+#         model = Rating
+#         fields = '__all__'
+
+
+class SubcribeSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+
+    class Meta:
+        model = Subcribes
+        fields = ['id', 'follower', 'store', 'created_date']
