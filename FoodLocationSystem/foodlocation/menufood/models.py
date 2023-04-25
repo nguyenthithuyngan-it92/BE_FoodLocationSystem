@@ -1,5 +1,4 @@
 import enum
-
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from ckeditor.fields import RichTextField
@@ -158,15 +157,3 @@ class Subcribes(BaseModel):
 
     class Meta:
         unique_together = ("follower", "store")
-
-
-
-
-
-
-
-
-
-
-
-

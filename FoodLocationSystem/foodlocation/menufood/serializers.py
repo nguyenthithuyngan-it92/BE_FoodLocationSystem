@@ -1,8 +1,8 @@
 from rest_framework import serializers
-from .models import Food, User, MenuItem, Order, OrderDetail, Tag, PaymentMethod
+from .models import Food, User, MenuItem, Order, OrderDetail, Tag, PaymentMethod, Comment, Subcribes, Rating
 
 
-class TagSerializers(serializers.ModelSerializer):
+class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
         fields = ['id', 'name']
@@ -10,7 +10,7 @@ class TagSerializers(serializers.ModelSerializer):
 
 class FoodSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField(source='image')
-    tags = TagSerializers(many=True)
+    tags = TagSerializer(many=True)
 
     def get_image(self, food):
         if food.image:
@@ -22,12 +22,32 @@ class FoodSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'price', 'start_time', 'end_time', 'description', 'image', 'menu_item', 'tags']
 
 
-# class FoodDetailsSerializer(FoodSerializer):
-#     # tags = TagSerializer(many=True)
-#
-#     class Meta:
-#         model = FoodSerializer.Meta.model
-#         fields = FoodSerializer.Meta.fields
+class FoodDetailsSerializer(FoodSerializer):
+    tags = TagSerializer(many=True)
+
+    class Meta:
+        model = FoodSerializer.Meta.model
+        fields = FoodSerializer.Meta.fields + ['content', 'tags']
+
+
+class AuthorizedFoodDetailsSerializer(FoodDetailsSerializer):
+    liked = serializers.SerializerMethodField()
+    rate = serializers.SerializerMethodField()
+
+    def get_liked(self, food):
+        request = self.context.get('request')
+        if request:
+            return food.like_set.filter(user=request.user, liked=True).exists()
+
+    def get_rate(self, food):
+        request = self.context.get('request')
+        if request:
+            r = food.rating_set.filter(user=request.user).first()
+            return r.rate if r else 0
+
+    class Meta:
+        model = FoodSerializer.Meta.model
+        fields = FoodSerializer.Meta.fields + ['liked', 'rate']
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -102,9 +122,27 @@ class OrderSerializer(serializers.ModelSerializer):
                   'paymentmethod', 'user', 'store', 'order_details']
 
 
+class CommentSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+
+    class Meta:
+        model = Comment
+        fields = ['id', 'content', 'created_date', 'user']
 
 
+# class ReviewSerializer(serializers.ModelSerializer):
+#     food_id = serializers.IntegerField()
+#     store_id = serializers.IntegerField()
+#     rating = serializers.IntegerField(min_value=1, max_value=5, default=0)
+#
+#     class Meta:
+#         model = Rating
+#         fields = '__all__'
 
 
-        
+class SubcribeSerializer(serializers.ModelSerializer):
+    follower = UserSerializer()
 
+    class Meta:
+        model = Subcribes
+        fields = ['id', 'follower', 'store', 'created_date']

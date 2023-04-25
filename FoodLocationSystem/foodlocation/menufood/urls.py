@@ -11,8 +11,9 @@ router.register('stores', views.StoreViewSet, basename='store')
 router.register('menu-items', views.MenuItemViewSet, basename='menu-item')
 router.register('orders', views.OrderViewSet, basename='order')
 router.register('order-details', views.OrderDetailViewSet, basename='order-details')
+router.register('comments', views.CommentViewSet, basename='comment')
+router.register('subcribes', views.SubcribeViewSet, basename='subcribe')
 router.register('food-store', views.FoodStoreViewSet, basename='food-store')
-
 
 urlpatterns = [
     path('', include(router.urls)),
