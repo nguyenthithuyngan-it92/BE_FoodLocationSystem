@@ -2,13 +2,14 @@ import enum
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from ckeditor.fields import RichTextField
+from cloudinary.models import  CloudinaryField
 from enum import Enum as UserEnum
 
 # Create your models here.
 
 
 class User(AbstractUser):
-    avatar = models.ImageField(upload_to='users/%Y/%m', null=True)
+    avatar = CloudinaryField('avatar',default='', null=True)
     phone = models.CharField(max_length=11, unique=True)
     address = models.CharField(max_length=255, null=True)
 
@@ -48,7 +49,7 @@ class Food(BaseModel):
     name = models.CharField(max_length=255)
     price = models.DecimalField(max_digits=10, decimal_places=0)
     description = RichTextField(null=True)
-    image = models.ImageField(upload_to='foods/%Y/%m', null=True)
+    image_food = CloudinaryField('image_food', default='', null=True)
     start_time = models.TimeField(null=True)
     end_time = models.TimeField(null=True)
 
