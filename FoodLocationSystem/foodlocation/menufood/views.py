@@ -320,7 +320,7 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
 
 
 class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.RetrieveAPIView, generics.DestroyAPIView):
-    serializer_class = FoodSerializer
+    serializer_class = FoodSerializer()
     queryset = Food.objects.all()
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -371,7 +371,6 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
             return Response({"message": f"Lưu thông tin món ăn thành công cho cửa hàng {user.name_store}!"},
                             status=status.HTTP_201_CREATED)
         return Response({"message": "Lưu thông tin món ăn không thành công!"}, status=status.HTTP_400_BAD_REQUEST)
-
 
     # chỉnh sửa món ăn cho từng cửa hàng đăng nhập vào
     def update(self, request, pk):
@@ -534,7 +533,6 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                         'menu_item': order_detail.food.menu_item.name,
                     }
                 }
-
                 data['order_details'].append(order_detail_data)
 
             return Response(data, status=status.HTTP_200_OK)
