@@ -200,35 +200,65 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView):
             return Response({"message": f"Bạn không có quyền thực hiện chức năng này!"},
                             status=status.HTTP_403_FORBIDDEN)
         if user.is_verify != 1:
-            return Response({"message": f"Tài khoản cửa hàng {user.name_store} chưa được chứng thực để thực hiện chức năng thêm menu!"},
+            return Response({"message": f"Tài khoản cửa hàng {user.name_store} chưa được chứng thực!"},
                             status=status.HTTP_403_FORBIDDEN)
 
-        # Lấy thông tin chi tiết của cửa hàng
-        store = User.objects.filter(id=user.id).values('name_store', 'phone', 'address', 'is_verify').first()
-        if not store:
-            return Response({"message": f"Cửa hàng không tồn tại!"},
-                            status=status.HTTP_404_NOT_FOUND)
+        # Lấy store
+        store = User.objects.filter(id=user.id)
 
-        # Lấy danh sách các menu item của cửa hàng
-        menu_items = MenuItem.objects.filter(store=user.id).annotate(food_count=Count('menuitem_food'))
-        menu_item_serializer = MenuItemSerializer(menu_items, many=True)
+        # Lấy tất cả các menu item của tất cả các store
+        menu_items = MenuItem.objects.filter(store__in=store)
 
-        # Lấy danh sách các food của cửa hàng
-        foods = Food.objects.filter(menu_item__store=user.id)
-        food_serializer = FoodSerializer(foods, many=True)
+        # Lấy tất cả các food của tất cả các menu item
+        foods = Food.objects.filter(menu_item__in=menu_items)
 
-        # Lấy danh sách các tag
-        # tags = Tag.objects.all()
-        # tag_serializer = TagSerializer(tags, many=True)
+        data = {}
+        try:
+            for s in store:
+                data[s.id] = {
+                    'store': s.id,
+                    'name_store': s.name_store,
+                    'address': s.address,
+                    'phone': s.phone,
+                    'menu_items': []
+                }
 
-        # Trả về thông tin chi tiết của cửa hàng và danh sách menu item và food liên quan
-        response_data = {
-            'store': store,
-            'menu_items': menu_item_serializer.data,
-            'foods': food_serializer.data,
-            # 'tags': tag_serializer.data,
-        }
-        return Response(response_data, status=status.HTTP_200_OK)
+            # Đổ dữ liệu đơn hàng vào các store tương ứng
+            for menu in menu_items:
+                menu_dict = {
+                    'id': menu.id,
+                    'name': menu.name,
+                    'active': menu.active,
+                    'foods': []
+                }
+
+                # Thêm thông tin các order_detail vào đơn hàng
+                for food in foods:
+                    if food.menu_item.id == menu.id:
+                        food_dict = {
+                            'id': food.id,
+                            'name': food.name,
+                            'active': food.active,
+                            'price': food.price,
+                            'image': food.image_food.url if food.image_food else None,
+                            'description': food.description,
+                            'start_time': str(food.start_time),
+                            'end_time': str(food.end_time)
+                        }
+                        menu_dict['foods'].append(food_dict)
+
+                data[menu.store.id]['menu_items'].append(menu_dict)
+
+            return Response({"message": f"Thông tin chi tiết của cửa hàng {user.name_store}",
+                             "statusCode": status.HTTP_200_OK, "data": data},
+                            status=status.HTTP_200_OK)
+            if not data:
+                return Response({"message": f"Không có thông tin của cửa hàng {user.name_store}.",
+                                 "statusCode": status.HTTP_404_NOT_FOUND},
+                                status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)})
+
 
 
 class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView,
