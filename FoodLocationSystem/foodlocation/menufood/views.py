@@ -19,8 +19,11 @@ from .serializers import (
 )
 from . import paginators
 from .perms import CommentOwner
-from django.db.models import Count
+from django.db.models import Count, Sum, F
 from django.core.mail import send_mail, EmailMessage
+from django.db.models.functions import TruncMonth, TruncQuarter, TruncYear
+from django.http import JsonResponse
+from datetime import datetime
 
 
 class TagViewSet(viewsets.ModelViewSet):
@@ -187,6 +190,49 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView):
 
         return Response(MenuItemSerializer(menu_items, many=True).data, status=status.HTTP_200_OK)
 
+    def get_permissions(self):
+        if self.action in ['get_store_detail']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
+    # lấy danh sách các hóa đơn chưa được xác nhận cho cửa hàng
+    @action(methods=['get'], detail=False, url_path='store-management')
+    def get_store_detail(self, request):
+        user = request.user
+        if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
+            return Response({"message": f"Bạn không có quyền thực hiện chức năng này!"},
+                            status=status.HTTP_403_FORBIDDEN)
+        if user.is_verify != 1:
+            return Response({"message": f"Tài khoản cửa hàng {user.name_store} chưa được chứng thực để thực hiện chức năng thêm menu!"},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        # Lấy thông tin chi tiết của cửa hàng
+        store = User.objects.filter(id=user.id).values('name_store', 'phone', 'address', 'is_verify').first()
+        if not store:
+            return Response({"message": f"Cửa hàng không tồn tại!"},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        # Lấy danh sách các menu item của cửa hàng
+        menu_items = MenuItem.objects.filter(store=user.id).annotate(food_count=Count('menuitem_food'))
+        menu_item_serializer = MenuItemSerializer(menu_items, many=True)
+
+        # Lấy danh sách các food của cửa hàng
+        foods = Food.objects.filter(menu_item__store=user.id)
+        food_serializer = FoodSerializer(foods, many=True)
+
+        # Lấy danh sách các tag
+        # tags = Tag.objects.all()
+        # tag_serializer = TagSerializer(tags, many=True)
+
+        # Trả về thông tin chi tiết của cửa hàng và danh sách menu item và food liên quan
+        response_data = {
+            'store': store,
+            'menu_items': menu_item_serializer.data,
+            'foods': food_serializer.data,
+            # 'tags': tag_serializer.data,
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
+
 
 class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView,
                       generics.CreateAPIView, generics.UpdateAPIView, generics.DestroyAPIView):
@@ -319,7 +365,7 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
                         status=status.HTTP_404_NOT_FOUND)
 
 
-class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.RetrieveAPIView, generics.DestroyAPIView):
+class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.RetrieveAPIView, generics.DestroyAPIView, generics.ListAPIView):
     serializer_class = FoodSerializer()
     queryset = Food.objects.all()
     permission_classes = [permissions.IsAuthenticated]
@@ -860,3 +906,45 @@ class SubcribeViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAP
             return Response({'message': 'Theo dõi không được tìm thấy!'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+#Thống kê doanh thu các sản phẩm, danh mục sản phẩm
+#Xem thống kê theo tháng
+
+
+def sales_by_month(request, year, month):
+    sales = OrderDetail.objects.filter(order__store=request.user, order__created_date__year=year, order_created_date__month=month).annotate(revenue=Sum(F('unit_price')*F('quantity')),).values('food__name', 'food__menu_item__name', 'revenue',)
+
+    return JsonResponse({'sales': list(sales)})
+
+#Xem thống kê theo quý
+
+
+def sales_by_quarter(request, year, quarter):
+    if quarter == '1':
+        start_month = 1
+        end_month = 3
+    elif quarter == '2':
+        start_month = 4
+        end_month = 6
+    elif quarter == '3':
+        start_month = 7
+        end_month = 9
+    elif quarter == '4':
+        start_month = 10
+        end_month = 12
+    else:
+        return JsonResponse({'message': 'Không tồn tại quý này!'})
+
+    sales = OrderDetail.objects.filter(order__store=request.user, order__created_date__year=year,
+                                       order__created_date__month__gte=start_month,
+                                       order__created_date__month__lte=end_month, ).annotate(
+        revenue=Sum(F('unit_price') * F('quantity')), ).values('food__name', 'food__menu_item__name', 'revenue', )
+
+    return JsonResponse({'sales': list(sales)})
+#Xem thống kê theo năm
+
+
+def sales_by_year(request, year):
+    sales = OrderDetail.objects.filter(order__store=request.user, order__created_date__year=year,).annotate(revenue=Sum(F('unit_price')*F('quantity')),).values('food__name', 'food__menu_item__name', 'revenue',)
+
+    return JsonResponse({'sales': list(sales)})

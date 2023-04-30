@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from . import cloud_path
 from .models import Food, User, MenuItem, Order, OrderDetail, Tag, PaymentMethod, Comment, Subcribes, Rating
 
 
@@ -9,17 +10,19 @@ class TagSerializer(serializers.ModelSerializer):
 
 
 class FoodSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField(source='image')
+    image = serializers.SerializerMethodField(source='image_food')
     tags = TagSerializer(many=True)
 
     def get_image(self, food):
-        if food.image:
-            request = self.context.get('request')
-            return request.build_absolute_uri('/static/%s' % food.image.name) if request else ''
+        if food.image_food:
+            return '{cloud_path}{image_name}'.format(cloud_path=cloud_path, image_name=food.image_food)
 
     class Meta:
         model = Food
-        fields = ['id', 'name', 'price', 'start_time', 'end_time', 'description', 'image', 'menu_item', 'tags']
+        fields = ['id', 'name', 'price', 'start_time', 'end_time', 'description', 'image_food', 'menu_item', 'tags', 'image']
+        extra_kwargs = {
+            'image_food': {'write_only': True},
+        }
 
 
 class FoodDetailsSerializer(FoodSerializer):
@@ -55,8 +58,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_image(self, user):
         if user.avatar:
-            request = self.context.get('request')
-            return request.build_absolute_uri('/static/%s' % user.avatar.name) if request else ''
+            return '{cloud_path}{image_name}'.format(cloud_path=cloud_path, image_name=user.avatar)
 
     def create(self, validated_data):
         data = validated_data.copy()
@@ -78,6 +80,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 class MenuItemSerializer(serializers.ModelSerializer):
     food_count = serializers.SerializerMethodField()
+    store = UserSerializer()
 
     def get_food_count(self, menu):
         return menu.food_count

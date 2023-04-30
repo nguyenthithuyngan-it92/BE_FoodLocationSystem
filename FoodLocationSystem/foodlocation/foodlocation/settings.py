@@ -11,6 +11,9 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
 from pathlib import Path
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -42,6 +45,7 @@ INSTALLED_APPS = [
     'oauth2_provider',
     'drf_yasg',
     'corsheaders',
+    'cloudinary',
 ]
 
 MIDDLEWARE = [
@@ -147,13 +151,19 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
 
-    'PAGE_SIZE': 8,  # phân trang
+    'PAGE_SIZE': 20,  # phân trang
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-CLIENT_ID = 'PKcxCq2Xmb76FjBgiUgNdJvtH7go7D6zWOOHbrGo'
-CLIENT_SECRET = '7khowuZV4Vr8NKjXdQi2DaxUQBeHqjdhRwXgIzqDyqduEp7DPSeWTXvuViQ463pJnFdBtepOWBqCATBoyl6dGfu4qTqauU2kbPSLCKjPF2YVDXg3wJH41KjEsbFArzSK'
+# (<<NTTN>>)
+# CLIENT_ID = 'PX1L78DG7sjxUgndorfk2LTH8ye0jOWbcpRON1lI'
+# CLIENT_SECRET = 'e2X37hXDnWDK1i2sNjCocfUqiDD6siUZKbB52xVjZ9yc2jYKE3PTtNvUNvPPukBGbKda5Iq9mU9L5aWiLZ0mkYpEprjJNkL6bkqnO3Rz4LxCrYDdgyE4Hpef1CL6P6IV'
+
+#(<<DTKN>>)
+CLIENT_ID = 'l8k5r5rRgKwsdHkBQIQjBbSdaL93odS3Uat6dtUk'
+CLIENT_SECRET = 'QIIXY3ZH9NqaUgl63V3MHe1YvjzdfgDXsW7tmiV799J2r9P0a78AwGgyxprpp0yx4LT0VPuuwpMBT7LyJ45aRQvjtxPWCP9xwORXabIxNYEwvpQZPkwrUOYUphWB9MTe'
+
 
 # config send email
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -162,4 +172,12 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'foodlocationapp@gmail.com' # Thay bằng email của bạn
 EMAIL_HOST_PASSWORD = 'auwhudaioiziwhff' # Thay bằng password của bạn
+
+# config cloudinary
+cloudinary.config(
+  cloud_name='tr-ng-h-m-tp-hcm',
+  api_key="129162374872392",
+  api_secret="Tpb6bk0-oTQf7B1o6wcwJU68c1Q"
+)
+
 
