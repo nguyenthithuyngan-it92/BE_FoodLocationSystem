@@ -4,6 +4,7 @@ from django.contrib.auth.models import Permission, Group
 from django import forms
 from ckeditor_uploader.widgets import CKEditorUploadingWidget
 from django.utils.html import mark_safe
+from . import cloud_path
 
 
 # cập nhật trang thống kê
@@ -15,17 +16,22 @@ admin_site = FoodLocationAppAdminSite(name='myadmin')
 
 
 class UserAdmin(admin.ModelAdmin):
-    list_display = ['pk', 'image', 'username', 'first_name', 'last_name', 'email', 'is_active', 'is_staff',
-                    'is_superuser', 'is_verify', 'name_store', 'phone', 'address']
+    list_display = ['pk', 'image', 'username', 'first_name', 'last_name', 'email',
+                    'name_store', 'phone', 'address',
+                    'is_active', 'is_staff', 'is_superuser', 'is_verify']
     search_fields = ['username', 'email', 'first_name', 'last_name', "phone", 'name_store']
     list_filter = ["user_role", "is_verify", 'is_active']
-    readonly_fields = ['image']
+    readonly_fields = [*list_display]
     actions_on_top = False
 
     def image(self, user):
         if user.avatar:
             return mark_safe(
-                "<img src='/static/{url}' width='50' height='50' />".format(url=user.avatar, alt=user.username))
+                "<img src='{cloud_path}{image_name}' width='50' height='50' />".format(cloud_path=cloud_path, image_name=user.avatar))
+
+    def has_add_permission(self, request):
+        # return False to disable the add functionality
+        return False
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -110,9 +116,9 @@ class FoodAdmin(admin.ModelAdmin):
     readonly_fields = [*list_display]
 
     def img(self, food):
-        if food.image:
+        if food.image_food:
             return mark_safe(
-                "<img src='/static/{url}' width='50' height='50' />".format(url=food.image, alt=food.image))
+                "<img src='{cloud_path}{image_name}' width='50' height='50' />".format(cloud_path=cloud_path, image_name=food.image_food))
 
     def has_add_permission(self, request):
         # return False to disable the add functionality

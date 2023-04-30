@@ -82,6 +82,7 @@ class MenuItemSerializer(serializers.ModelSerializer):
     food_count = serializers.SerializerMethodField()
     store = UserSerializer()
 
+
     def get_food_count(self, menu):
         return menu.food_count
 
