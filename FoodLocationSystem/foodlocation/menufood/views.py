@@ -192,7 +192,6 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView):
             return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
-    # lấy danh sách các hóa đơn chưa được xác nhận cho cửa hàng
     @action(methods=['get'], detail=False, url_path='store-management')
     def get_store_detail(self, request):
         user = request.user
@@ -258,7 +257,6 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView):
                                 status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)})
-
 
 
 class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView,
