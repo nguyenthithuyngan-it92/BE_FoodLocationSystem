@@ -232,12 +232,12 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView):
         return Response(MenuItemSerializer(menu_items, many=True).data, status=status.HTTP_200_OK)
 
     def get_permissions(self):
-        if self.action in ['get_store_detail']:
+        if self.action in ['get_store_detail', 'get_menu_store']:
             return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
-    @action(methods=['get'], detail=False, url_path='store-management')
-    def get_store_detail(self, request):
+    @action(methods=['get'], detail=False, url_path='menu-management')
+    def get_menu_store(self, request):
         user = request.user
         if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
             return Response({"message": f"Bạn không có quyền thực hiện chức năng này!"},
@@ -247,60 +247,84 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView):
                             status=status.HTTP_403_FORBIDDEN)
 
         # Lấy store
-        store = User.objects.filter(id=user.id)
+        store = User.objects.get(id=user.id)
+        menu_items = store.menuitem_store.annotate(
+            food_count=Count('menuitem_food'))
+
+        return Response(MenuItemSerializer(menu_items, many=True).data, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False, url_path='food-management')
+    def get_food_store(self, request):
+        user = request.user
+        if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
+            return Response({"message": f"Bạn không có quyền thực hiện chức năng này!"},
+                            status=status.HTTP_403_FORBIDDEN)
+        if user.is_verify != 1:
+            return Response({"message": f"Tài khoản cửa hàng {user.name_store} chưa được chứng thực!"},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        # Lấy store
+        try:
+            store = User.objects.get(id=user.id, user_role=User.STORE)
+            foods = Food.objects.filter(menu_item__store=user.id)
+
+            serializer = FoodSerializer(foods, many=True)
+            return Response(serializer.data)
+        except User.DoesNotExist:
+            return Response({'error': 'Store not found.'}, status=404)
 
         # Lấy tất cả các menu item của tất cả các store
-        menu_items = MenuItem.objects.filter(store__in=store)
-
-        # Lấy tất cả các food của tất cả các menu item
-        foods = Food.objects.filter(menu_item__in=menu_items)
-
-        data = {}
-        try:
-            for s in store:
-                data[s.id] = {
-                    'store': s.id,
-                    'name_store': s.name_store,
-                    'address': s.address,
-                    'phone': s.phone,
-                    'menu_items': []
-                }
-
-            # Đổ dữ liệu đơn hàng vào các store tương ứng
-            for menu in menu_items:
-                menu_dict = {
-                    'id': menu.id,
-                    'name': menu.name,
-                    'active': menu.active,
-                    'foods': []
-                }
-
-                # Thêm thông tin các order_detail vào đơn hàng
-                for food in foods:
-                    if food.menu_item.id == menu.id:
-                        food_dict = {
-                            'id': food.id,
-                            'name': food.name,
-                            'active': food.active,
-                            'price': food.price,
-                            'image': food.image_food.url if food.image_food else None,
-                            'description': food.description,
-                            'start_time': str(food.start_time),
-                            'end_time': str(food.end_time)
-                        }
-                        menu_dict['foods'].append(food_dict)
-
-                data[menu.store.id]['menu_items'].append(menu_dict)
-
-            return Response({"message": f"Thông tin chi tiết của cửa hàng {user.name_store}",
-                             "statusCode": status.HTTP_200_OK, "data": data},
-                            status=status.HTTP_200_OK)
-            if not data:
-                return Response({"message": f"Không có thông tin của cửa hàng {user.name_store}.",
-                                 "statusCode": status.HTTP_404_NOT_FOUND},
-                                status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': str(e)})
+        # menu_items = MenuItem.objects.filter(store__in=store)
+        #
+        # # Lấy tất cả các food của tất cả các menu item
+        # foods = Food.objects.filter(menu_item__in=menu_items)
+        #
+        # data = {}
+        # try:
+        #     for s in store:
+        #         data[s.id] = {
+        #             'store': s.id,
+        #             'name_store': s.name_store,
+        #             'address': s.address,
+        #             'phone': s.phone,
+        #             'menu_items': []
+        #         }
+        #
+        #     # Đổ dữ liệu đơn hàng vào các store tương ứng
+        #     for menu in menu_items:
+        #         menu_dict = {
+        #             'id': menu.id,
+        #             'name': menu.name,
+        #             'active': menu.active,
+        #             'foods': []
+        #         }
+        #
+        #         # Thêm thông tin các order_detail vào đơn hàng
+        #         for food in foods:
+        #             if food.menu_item.id == menu.id:
+        #                 food_dict = {
+        #                     'id': food.id,
+        #                     'name': food.name,
+        #                     'active': food.active,
+        #                     'price': food.price,
+        #                     'image': food.image_food.url if food.image_food else None,
+        #                     'description': food.description,
+        #                     'start_time': str(food.start_time),
+        #                     'end_time': str(food.end_time)
+        #                 }
+        #                 menu_dict['foods'].append(food_dict)
+        #
+        #         data[menu.store.id]['menu_items'].append(menu_dict)
+        #
+        #     return Response({"message": f"Thông tin chi tiết của cửa hàng {user.name_store}",
+        #                      "statusCode": status.HTTP_200_OK, "data": data},
+        #                     status=status.HTTP_200_OK)
+        #     if not data:
+        #         return Response({"message": f"Không có thông tin của cửa hàng {user.name_store}.",
+        #                          "statusCode": status.HTTP_404_NOT_FOUND},
+        #                         status=status.HTTP_404_NOT_FOUND)
+        # except Exception as e:
+        #     return Response({'error': str(e)})
 
 
 class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView,
@@ -685,82 +709,14 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                              "statusCode": status.HTTP_403_FORBIDDEN},
                             status=status.HTTP_403_FORBIDDEN)
 
-        # Lấy danh sách các đơn hàng có trạng thái 'PENDING'
-        orders = Order.objects.filter(order_status=Order.PENDING, store=user.id).exclude(user__user_role=User.STORE) \
-            .select_related('paymentmethod', 'user')
-
-        # Lấy các order_detail của các đơn hàng
-        order_details = OrderDetail.objects.filter(order__in=orders).select_related('food')
-
-        # Lấy các món ăn của các order_detail
-        foods = Food.objects.filter(id__in=order_details.values_list('food_id', flat=True)).select_related('menu_item')
-
-        # Lấy các menu item của các món ăn
-        menu_items = MenuItem.objects.filter(id__in=foods.values_list('menu_item_id', flat=True))
-
-        # Lấy các cửa hàng của các menu item
-        stores = User.objects.filter(id__in=menu_items.values_list('store_id', flat=True))
-
-        # Tạo dictionary để lưu thông tin đơn hàng của từng cửa hàng
-        orders_dict = {}
         try:
-            for store in stores:
-                orders_dict[store.id] = {
-                    'store': store.id,
-                    'orders': []
-                }
+            orders = Order.objects.filter(store=user, order_status=Order.PENDING)
 
-            # Đổ dữ liệu đơn hàng vào các store tương ứng
-            for order in orders:
-                order_dict = {
-                    'id': order.id,
-                    'amount': order.amount,
-                    'delivery_fee': order.delivery_fee,
-                    'receiver_name': order.receiver_name,
-                    'receiver_phone': order.receiver_phone,
-                    'receiver_address': order.receiver_address,
-                    'created_date': order.created_date,
-                    'payment_status': order.payment_status,
-                    'payment_method': order.paymentmethod.name,
-                    'user_id': order.user.id,
-                    'user_name': order.user.username,
-                    'store_id': order.store.id,
-                    'store_name': order.store.name_store,
-                    'order_details': []
-                }
-
-                # Thêm thông tin các order_detail vào đơn hàng
-                for order_detail in order_details.filter(order=order):
-                    food = foods.get(id=order_detail.food_id)
-                    menu_item = menu_items.get(id=food.menu_item_id)
-                    # store = stores.get(id=menu_item.store_id)
-
-                    order_detail_dict = {
-                        'food_id': food.id,
-                        'food_name': food.name,
-                        'menu_item_id': menu_item.id,
-                        'menu_item_name': menu_item.name,
-                        'unit_price': order_detail.unit_price,
-                        'quantity': order_detail.quantity
-                    }
-                    # if store.id == user.id:
-                    order_dict['order_details'].append(order_detail_dict)
-
-                # if store.id == user.id:
-                orders_dict[store.id]['orders'].append(order_dict)
-
-            if not list(orders_dict.values()):
-                return Response({"message": f"Không có đơn hàng cần xác nhận của cửa hàng {user.name_store}.",
-                                 "statusCode": status.HTTP_404_NOT_FOUND},
-                                status=status.HTTP_404_NOT_FOUND)
-
-            return Response({"message": f"Danh sách đơn hàng cần xác nhận của cửa hàng {user.name_store}",
-                             "statusCode": status.HTTP_200_OK, "data": list(orders_dict.values())},
+            return Response(OrderSerializer(orders, many=True).data,
                             status=status.HTTP_200_OK)
+
         except Order.DoesNotExist:
-            return Response({"message": f"Không có đơn hàng cần xác nhận của cửa hàng {user.name_store}.",
-                             "statusCode": status.HTTP_404_NOT_FOUND},
-                            status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
     # xác nhận đơn hàng - order_status=ACCEPTED
     @action(methods=['post'], detail=True, url_path='confirm-order')
@@ -797,82 +753,14 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                              "statusCode": status.HTTP_403_FORBIDDEN},
                             status=status.HTTP_403_FORBIDDEN)
 
-        # Lấy danh sách các đơn hàng có trạng thái 'ACCEPTED'
-        orders = Order.objects.filter(order_status=Order.ACCEPTED, store=user.id).exclude(user__user_role=User.STORE) \
-            .select_related('paymentmethod', 'user')
-
-        # Lấy các order_detail của các đơn hàng
-        order_details = OrderDetail.objects.filter(order__in=orders).select_related('food')
-
-        # Lấy các món ăn của các order_detail
-        foods = Food.objects.filter(id__in=order_details.values_list('food_id', flat=True)).select_related('menu_item')
-
-        # Lấy các menu item của các món ăn
-        menu_items = MenuItem.objects.filter(id__in=foods.values_list('menu_item_id', flat=True))
-
-        # Lấy các cửa hàng của các menu item
-        stores = User.objects.filter(id__in=menu_items.values_list('store_id', flat=True))
-
-        # Tạo dictionary để lưu thông tin đơn hàng của từng cửa hàng
-        orders_dict = {}
         try:
-            for store in stores:
-                orders_dict[store.id] = {
-                    'store': store.id,
-                    'orders': []
-                }
+            orders = Order.objects.filter(store=user, order_status=Order.ACCEPTED)
 
-            # Đổ dữ liệu đơn hàng vào các store tương ứng
-            for order in orders:
-                order_dict = {
-                    'id': order.id,
-                    'amount': order.amount,
-                    'delivery_fee': order.delivery_fee,
-                    'receiver_name': order.receiver_name,
-                    'receiver_phone': order.receiver_phone,
-                    'receiver_address': order.receiver_address,
-                    'created_date': order.created_date,
-                    'payment_status': order.payment_status,
-                    'payment_method': order.paymentmethod.name,
-                    'user_id': order.user.id,
-                    'user_name': order.user.username,
-                    'store_id': order.store.id,
-                    'store_name': order.store.name_store,
-                    'order_details': []
-                }
-
-                # Thêm thông tin các order_detail vào đơn hàng
-                for order_detail in order_details.filter(order=order):
-                    food = foods.get(id=order_detail.food_id)
-                    menu_item = menu_items.get(id=food.menu_item_id)
-                    # store = stores.get(id=menu_item.store_id)
-
-                    order_detail_dict = {
-                        'food_id': food.id,
-                        'food_name': food.name,
-                        'menu_item_id': menu_item.id,
-                        'menu_item_name': menu_item.name,
-                        'unit_price': order_detail.unit_price,
-                        'quantity': order_detail.quantity
-                    }
-                    # if store.id == user.id:
-                    order_dict['order_details'].append(order_detail_dict)
-
-                # if store.id == user.id:
-                orders_dict[store.id]['orders'].append(order_dict)
-
-            if not list(orders_dict.values()):
-                return Response({"message": f"Không có đơn hàng nào đang được giao của cửa hàng {user.name_store}.",
-                                 "statusCode": status.HTTP_404_NOT_FOUND},
-                                status=status.HTTP_404_NOT_FOUND)
-
-            return Response({"message": f"Danh sách đơn hàng đang được giao của cửa hàng {user.name_store}",
-                             "statusCode": status.HTTP_200_OK, "data": list(orders_dict.values())},
+            return Response(OrderSerializer(orders, many=True).data,
                             status=status.HTTP_200_OK)
+
         except Order.DoesNotExist:
-            return Response({"message": f"Không có đơn hàng nào đang được giao của cửa hàng {user.name_store}.",
-                             "statusCode": status.HTTP_404_NOT_FOUND},
-                            status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
     # xác nhận đơn hàng giao thành công - order_status=SUCCESSED
     @action(methods=['post'], detail=True, url_path='complete-order')
