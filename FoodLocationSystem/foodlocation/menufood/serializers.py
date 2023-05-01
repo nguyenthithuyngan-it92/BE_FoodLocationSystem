@@ -46,14 +46,14 @@ class FoodSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField(source='image_food')
     tags = TagSerializer(many=True)
     menu_item = MenuItemSerializer2()
-    
+
     def get_image(self, food):
         if food.image_food:
             return '{cloud_path}{image_name}'.format(cloud_path=cloud_path, image_name=food.image_food)
 
     class Meta:
         model = Food
-        fields = ['id', 'name', 'price', 'start_time', 'end_time', 'description', 'image', 'image_food', 'menu_item', 'tags']
+        fields = ['id', 'name', 'price', 'active', 'start_time', 'end_time', 'description', 'image', 'image_food', 'menu_item', 'tags']
         extra_kwargs = {
             'image_food': {'write_only': True},
         }
