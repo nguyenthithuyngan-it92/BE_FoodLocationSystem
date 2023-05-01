@@ -160,11 +160,10 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
 
 
 class StoreViewSet(viewsets.ViewSet, generics.ListAPIView):
-    queryset = User.objects.filter(is_active=True, is_verify=True, user_role=1)
     serializer_class = StoreSerializer
 
     def get_queryset(self):
-        menu = self.queryset
+        menu = User.objects.filter(is_active=True, is_verify=True, user_role=1)
         menu = menu.annotate(
             menu_count=Count('menuitem_store')
         )
@@ -174,6 +173,51 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView):
             menu = menu.filter(name_store__icontains=kw)
 
         return menu
+
+    @action(methods=['get'], detail=True, url_path='list_food_by_store')
+    def list_food_by_store(self, request, pk):
+        store = self.get_object()
+        # Lấy tất cả các menu item của tất cả các store
+        menu_items = MenuItem.objects.filter(store__in=store)
+
+        # Lấy tất cả các food của tất cả các menu item
+        foods = Food.objects.filter(menu_item__in=menu_items)
+
+        data = {}
+        try:
+            data[store.id] = {
+                'store': store.id,
+                'name_store': store.name_store,
+                'address': store.address,
+                'phone': store.phone,
+                'foods': []
+            }
+
+            # Thêm thông tin các order_detail vào đơn hàng
+            for food in foods:
+                if food.menu_item.store.id == store.id:
+                    food_dict = {
+                        'id': food.id,
+                        'name': food.name,
+                        'active': food.active,
+                        'price': food.price,
+                        'image': food.image_food.url if food.image_food else None,
+                        'description': food.description,
+                        'start_time': str(food.start_time),
+                        'end_time': str(food.end_time)
+                    }
+
+                data[food.menu_item.store.id]['foods'].append(food_dict)
+
+            return Response({"message": f"Thông tin chi tiết của cửa hàng {store.name_store}",
+                             "statusCode": status.HTTP_200_OK, "data": data},
+                            status=status.HTTP_200_OK)
+            if not data:
+                return Response({"message": f"Không có thông tin của cửa hàng {store.name_store}.",
+                                 "statusCode": status.HTTP_404_NOT_FOUND},
+                                status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)})
 
     @action(methods=['get'], detail=True, url_path='menu-item')
     def get_menu_item(self, request, pk):
@@ -390,11 +434,15 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
                         status=status.HTTP_404_NOT_FOUND)
 
 
-class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.RetrieveAPIView, generics.DestroyAPIView, generics.ListAPIView):
+class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.RetrieveAPIView, generics.DestroyAPIView):
     serializer_class = FoodSerializer()
     queryset = Food.objects.all()
-    permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'delete', 'destroy', 'set_status_food']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
 
     # tạo món ăn cho từng cửa hàng đăng nhập vào
     def create(self, request):
@@ -931,3 +979,23 @@ class SubcribeViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAP
             return Response({'message': 'Theo dõi không được tìm thấy!'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FoodByStoreViewSet(viewsets.ViewSet):
+    serializer_class = FoodSerializer
+
+    def get_queryset(self):
+        store_id = self.kwargs.get('store_id')
+        queryset = Food.objects.filter(menu_item__store=store_id)
+        return queryset
+
+    @action(methods=['get'], detail=True)
+    def get_food_by_store_id(self, request, pk):
+        try:
+            store = User.objects.get(id=pk, user_role=User.STORE)
+            foods = Food.objects.filter(menu_item__store=pk)
+
+            serializer = FoodSerializer(foods, many=True)
+            return Response(serializer.data)
+        except User.DoesNotExist:
+            return Response({'error': 'Store not found.'}, status=404)

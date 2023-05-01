@@ -14,6 +14,7 @@ router.register('order-details', views.OrderDetailViewSet, basename='order-detai
 router.register('comments', views.CommentViewSet, basename='comment')
 router.register('subcribes', views.SubcribeViewSet, basename='subcribe')
 router.register('food-store', views.FoodStoreViewSet, basename='food-store')
+router.register('food-list', views.FoodByStoreViewSet, basename='food-list')
 
 urlpatterns = [
     path('', include(router.urls)),
