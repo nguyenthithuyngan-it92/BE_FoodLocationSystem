@@ -887,3 +887,8 @@ class FoodByStoreViewSet(viewsets.ViewSet):
             return Response(serializer.data)
         except User.DoesNotExist:
             return Response({'error': 'Store not found.'}, status=404)
+
+
+class PaymentmethodViewSet(viewsets.ViewSet, generics.ListAPIView):
+    serializer_class = PaymentMethodSerializer
+    queryset = PaymentMethod.objects.all()
