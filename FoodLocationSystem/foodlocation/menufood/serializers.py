@@ -9,17 +9,51 @@ class TagSerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 
+class UserSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField(source='avatar')
+
+    def get_image(self, user):
+        if user.avatar:
+            return '{cloud_path}{image_name}'.format(cloud_path=cloud_path, image_name=user.avatar)
+
+    def create(self, validated_data):
+        data = validated_data.copy()
+        user = User(**data)
+        user.set_password(user.password)
+        user.save()
+
+        return user
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'password', 'first_name', 'last_name', 'avatar', 'email', 'phone', 'image',
+                  'name_store', 'address', 'user_role']
+        extra_kwargs = {
+            'avatar': {'write_only': True},
+            'password': {'write_only': True}
+        }
+
+
+class MenuItemSerializer2(serializers.ModelSerializer):
+    store = UserSerializer()
+
+    class Meta:
+        model = MenuItem
+        fields = ['id', 'name', 'active', 'store']
+
+
 class FoodSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField(source='image_food')
     tags = TagSerializer(many=True)
-
+    menu_item = MenuItemSerializer2()
+    
     def get_image(self, food):
         if food.image_food:
             return '{cloud_path}{image_name}'.format(cloud_path=cloud_path, image_name=food.image_food)
 
     class Meta:
         model = Food
-        fields = ['id', 'name', 'price', 'start_time', 'end_time', 'description', 'image_food', 'menu_item', 'tags', 'image']
+        fields = ['id', 'name', 'price', 'start_time', 'end_time', 'description', 'image', 'image_food', 'menu_item', 'tags']
         extra_kwargs = {
             'image_food': {'write_only': True},
         }
@@ -51,31 +85,6 @@ class AuthorizedFoodDetailsSerializer(FoodDetailsSerializer):
     class Meta:
         model = FoodSerializer.Meta.model
         fields = FoodSerializer.Meta.fields + ['liked', 'rate']
-
-
-class UserSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField(source='avatar')
-
-    def get_image(self, user):
-        if user.avatar:
-            return '{cloud_path}{image_name}'.format(cloud_path=cloud_path, image_name=user.avatar)
-
-    def create(self, validated_data):
-        data = validated_data.copy()
-        user = User(**data)
-        user.set_password(user.password)
-        user.save()
-
-        return user
-
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'password', 'first_name', 'last_name', 'avatar', 'email', 'phone', 'image',
-                  'name_store', 'address', 'user_role']
-        extra_kwargs = {
-            'avatar': {'write_only': True},
-            'password': {'write_only': True}
-        }
 
 
 class MenuItemSerializer(serializers.ModelSerializer):

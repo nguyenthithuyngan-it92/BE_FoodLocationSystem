@@ -199,7 +199,6 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView):
             return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
-    # lấy danh sách các hóa đơn chưa được xác nhận cho cửa hàng
     @action(methods=['get'], detail=False, url_path='store-management')
     def get_store_detail(self, request):
         user = request.user
@@ -265,7 +264,6 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView):
                                 status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)})
-
 
 
 class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView,
@@ -942,72 +940,60 @@ class SubcribeViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAP
             return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 #Thống kê doanh thu các sản phẩm, danh mục sản phẩm theo tháng, quý và năm
-class RevenueStatsView(APIView):
+
+
+class RevenueStatMonthView(APIView):
     permission_classes = [permissions.AllowAny]
+
     def post(self, request):
-        #Lấy dữ liệu thống kê theo thời gian yêu cầu:
-        revenue_stats_time_str = request.data.get['revenue_stats_time']
+        month_str = request.data.get('month')
         try:
-            revenue_stats_time = datetime.strptime(revenue_stats_time_str, '%Y-%m-%d')
+            month = datetime.strptime(month_str, '%Y-%m')
         except:
-            return Response(data={"error-msg": "Invalid revenue_stats_time format. Please provide date in 'YYYY-MM-DD' format."},
-                            status=status.HTTP_400_BAD_REQUEST)
-        #Kiểm tra xem yêu cầu là thống kê theo tháng, quý hay năm
-        time_group = request.data.get('time_group', 'month')
-        if time_group == 'month':
-            start_time = revenue_stats_time.replace(day=1)
-            end_time = (start_time + timedelta(days=calendar.monthrange(revenue_stats_time.year, revenue_stats_time.month)[1]) - timedelta(days=1)).date()
-        elif time_group == 'quarter':
-            quarter_start_month = (revenue_stats_time.month - 1) // 3 * 3 + 1
-            start_time = revenue_stats_time.replace(month=quarter_start_month, day=1)
-            end_time = (start_time + relativedelta(months=+2, day=31)).date()
-        elif time_group == 'year':
-            start_time = revenue_stats_time.replace(month=1, day=1)
-            end_time = start_time.replace(month=12, day=31)
-        else:
-            return Response(data={"error-msg": "Invalid time_group. Please choose from 'month', 'quarter' or 'year'."},
+            return Response(data={"error_msg": "Invalid month format. Please use 'YYYY-MM' format."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        #Lấy danh sách các sản phẩm có trong menu
-        menu_items = MenuItem.objects.filter(store__user_role=1)
+        #Lấy danh sách tất cả các order detail trong tháng đó
+        order_details = OrderDetail.objects.filter(order__created_date__year=month.year,
+                                                   order__created_date__month=month.month)
+        #Tính tổng doanh thu của cửa hàng trong tháng đó
+        total_revenue = sum([order_detail.unit_price * order_detail.quantity
+                             for order_detail in order_details])
+        #Tạo danh sách các sản phẩm
+        items = []
+        for order_detail in order_details:
+            item = {
+                "food_id": order_detail.food.id,
+                "food_name": order_detail.food.name,
+                "food_price": order_detail.food.price,
+                "quantity": order_detail.quantity
+            }
+            #Tìm kiếm danh mục của sản phẩm
+            menu_item = order_detail.food.menu_item
+            if menu_item:
+                item["menu_item_id"] = menu_item.id
+                item["menu_item_name"] = menu_item.name
 
-        #Thống kê doanh thu các sản phẩm trong thời gian đã chọn
-        product_stats = Food.objects.filter(
-            menu_item__in=menu_items,
-            created_date__gte=start_time,
-            created_date__lte=end_time
-        ).annotate(
-            total_revenue=Sum(
-                Case(
-                    When(
-                        orders__created_date_gte=start_time,
-                        orders__created_date_lte=end_time,
-                        then=F('orders__quantity') * F('price') #Lấy giá trị của sản phẩm từ trường `price` của model `Food`
-                                                                # và số lượng sản phẩm từ trường `quantity` của model `OrderDatail
-                    ),
-                    output_field=DecimalField()
-                )
-            )
-        ).values(
-            'menu_item__name',
-            'name',
-            'total_revenue'
-        ).order_by(
-            'menu_item__name',
-            'name'
-        )
-        #Tính tổng doanh thu và số lượng sản phẩm bán ra
-        total_revenue = product_stats.aggregate(Sum('total_revenue')).get('total_revenue__sum') or 0
-        total_quantity = product_stats.count()
-
-        return Response(
-            data={
-                "revenue_stats_time": revenue_stats_time_str,
-                "time_group": time_group,
-                "start_time": start_time.strftime('%Y-%m-%d'),
-                "end_time": end_time.strftime('%Y-%m-%d'),
-                "total_revenue": total_revenue,
-                "total_quantity": total_quantity,
-                "product_stats": product_stats,
-            }, status=status.HTTP_200_OK
-        )
+            #Thêm sản phẩm vào danh sách
+            items.append(item)
+        #Tạo danh sách các danh mục
+        menu_items = []
+        for order_detail in order_details:
+            menu_item = order_detail.food.menu_item
+            if menu_item:
+                menu_item_total = sum([order.unit_price * order.quantity
+                                       for order in order_details
+                                       if order.food.menu_item == menu_item])
+                menu_item_dict = {
+                    "menu_item_id": menu_item.id,
+                    "menu_item_name": menu_item.name,
+                    "total_revenue": menu_item_total
+                }
+                #Thêm danh mục vào danh sách
+                menu_items.append(menu_item_dict)
+        #Trả về kết quả
+        return Response(data={
+            "total_revenue": total_revenue,
+            "items": items,
+            "menu_items": menu_items
+        }, status=status.HTTP_200_OK)

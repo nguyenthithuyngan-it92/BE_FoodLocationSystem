@@ -18,4 +18,5 @@ router.register('food-store', views.FoodStoreViewSet, basename='food-store')
 urlpatterns = [
     path('', include(router.urls)),
     path('admin/', admin_site.urls),
+    path('revenue-stats-month/', views.RevenueStatMonthView.as_view(), name='revenue-stats-month')
 ]
