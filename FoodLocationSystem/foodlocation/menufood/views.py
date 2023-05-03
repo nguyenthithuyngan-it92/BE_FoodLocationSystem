@@ -398,7 +398,9 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
         try:
             user = request.user
             if user == self.get_object().store:
-                return super().destroy(request, *args, **kwargs)
+                super().destroy(request, *args, **kwargs)
+                return Response({"message": "Xóa thông tin menu thành công!"},
+                                status=status.HTTP_200_OK)
 
             return Response({"message": f"Memu này không thuộc quyền xóa của bạn!"},
                             status=status.HTTP_403_FORBIDDEN)
@@ -512,6 +514,31 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
                                         status=status.HTTP_404_NOT_FOUND)
                     food.tags.add(tag)
 
+            # followers = Subcribes.objects.filter(store=user.id)
+            # if followers:
+            #     for f in followers:
+            #         # send mail
+            #         email = f.follower.email
+            #         subject = "Xác nhận đơn hàng đã được giao thành công"
+            #         content = """
+            #             Chào {0},
+            #             Cửa hàng {1} - {7} bạn theo dõi vừa đăng món ăn mới.
+            #             Chi tiết:
+            #             Tên món ăn: {2}
+            #             Giá bán: {3:,.0f} VND
+            #             Thời gian bán trong ngày: {4} - {5}
+            #             Danh mục: {6}
+            #             Cám ơn bạn đã tin tưởng chọn dịch vụ của chúng tôi.
+            #             Mọi thắc mắc và yêu cầu hỗ trợ xin gửi về địa chỉ foodlocationapp@gmail.com.
+            #             """.format(f.follower.first_name + " " + f.follower.last_name,
+            #                        user.name_store, name,
+            #                        price, start_time, end_time,
+            #                        menu_item.name, user.address)
+            #         if email and subject and content:
+            #             send_email = EmailMessage(subject, content, to=[email])
+            #             send_email.send()
+            #             return Response(status=status.HTTP_200_OK)
+
             return Response({"message": f"Lưu thông tin món ăn thành công cho cửa hàng {user.name_store}!"},
                             status=status.HTTP_201_CREATED)
         return Response({"message": "Lưu thông tin món ăn không thành công!"}, status=status.HTTP_400_BAD_REQUEST)
@@ -550,7 +577,9 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
         try:
             user = request.user
             if user == self.get_object().menu_item.store:
-                return super().destroy(request, *args, **kwargs)
+                super().destroy(request, *args, **kwargs)
+                return Response({"message": "Xóa thông tin món ăn thành công!"},
+                                status=status.HTTP_200_OK)
 
             return Response({"message": f"Món ăn này không thuộc quyền xóa của bạn!"},
                             status=status.HTTP_403_FORBIDDEN)
@@ -719,7 +748,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
         except Order.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-    # xác nhận đơn hàng - order_status=ACCEPTED
+    # xác nhận đơn hàng
     @action(methods=['post'], detail=True, url_path='confirm-order')
     def confirm_order(self, request, pk):
         user = request.user
@@ -740,45 +769,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                     order.save()
                     return Response({'message': f'Đơn hàng {pk} đã được xác nhận thành công!'},
                                     status=status.HTTP_200_OK)
-            return Response({'message': f'Đơn hàng {pk} không thuộc quyền xử lý của bạn. Cập nhật không thành công!'},
-                            status=status.HTTP_404_NOT_FOUND)
 
-        return Response({'message': f'Đơn hàng {pk} xác nhận không thành công. Vui lòng thử lại!'},
-                        status=status.HTTP_404_NOT_FOUND)
-
-    @action(methods=['get'], detail=False, url_path='accepted-order')
-    def get_list_accepted(self, request):
-        user = self.request.user
-        if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
-            return Response({"message": "Bạn không có quyền thực hiện chức năng này.",
-                             "statusCode": status.HTTP_403_FORBIDDEN},
-                            status=status.HTTP_403_FORBIDDEN)
-
-        try:
-            orders = Order.objects.filter(store=user, order_status=Order.ACCEPTED)
-
-            return Response(OrderSerializer(orders, many=True).data,
-                            status=status.HTTP_200_OK)
-
-        except Order.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-
-    # xác nhận đơn hàng giao thành công - order_status=SUCCESSED
-    @action(methods=['post'], detail=True, url_path='complete-order')
-    def complete_order(self, request, pk):
-        user = request.user
-        if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
-            return Response({"message": "Bạn không có quyền thực hiện chức năng này."},
-                            status=status.HTTP_403_FORBIDDEN)
-
-        try:
-            order = Order.objects.get(id=pk)
-        except Order.DoesNotExist:
-            return Response({'message': f'Đơn hàng không được tìm thấy hoặc đã được xử lý!'},
-                            status=status.HTTP_404_NOT_FOUND)
-
-        if request.method == 'POST':
-            if order.store.id == user.id:
                 if order.order_status == Order.ACCEPTED:
                     if order.payment_status == 0:
                         order.order_status = Order.SUCCESSED
@@ -810,14 +801,86 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                             send_email.send()
                             return Response(data={"message": "Gửi mail thành công! Đã xác nhận đơn hàng giao hàng thành công!"},
                                             status=status.HTTP_200_OK)
-
-                    return Response({'message': f'Đã xác nhận đơn hàng {pk} giao hàng thành công!'},
-                                    status=status.HTTP_200_OK)
+                        return Response({'message': f'Đơn hàng {pk} đã được xác nhận thành công! Khách hàng chưa nhận được mail!'},
+                                        status=status.HTTP_200_OK)
             return Response({'message': f'Đơn hàng {pk} không thuộc quyền xử lý của bạn. Cập nhật không thành công!'},
                             status=status.HTTP_404_NOT_FOUND)
 
         return Response({'message': f'Đơn hàng {pk} xác nhận không thành công. Vui lòng thử lại!'},
                         status=status.HTTP_404_NOT_FOUND)
+
+    @action(methods=['get'], detail=False, url_path='accepted-order')
+    def get_list_accepted(self, request):
+        user = self.request.user
+        if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
+            return Response({"message": "Bạn không có quyền thực hiện chức năng này.",
+                             "statusCode": status.HTTP_403_FORBIDDEN},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            orders = Order.objects.filter(store=user, order_status=Order.ACCEPTED)
+
+            return Response(OrderSerializer(orders, many=True).data,
+                            status=status.HTTP_200_OK)
+
+        except Order.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+    # xác nhận đơn hàng giao thành công - order_status=SUCCESSED
+    # @action(methods=['post'], detail=True, url_path='complete-order')
+    # def complete_order(self, request, pk):
+    #     user = request.user
+    #     if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
+    #         return Response({"message": "Bạn không có quyền thực hiện chức năng này."},
+    #                         status=status.HTTP_403_FORBIDDEN)
+    #
+    #     try:
+    #         order = Order.objects.get(id=pk)
+    #     except Order.DoesNotExist:
+    #         return Response({'message': f'Đơn hàng không được tìm thấy hoặc đã được xử lý!'},
+    #                         status=status.HTTP_404_NOT_FOUND)
+    #
+    #     if request.method == 'POST':
+    #         if order.store.id == user.id:
+    #             if order.order_status == Order.ACCEPTED:
+    #                 if order.payment_status == 0:
+    #                     order.order_status = Order.SUCCESSED
+    #                     order.payment_status = True
+    #                     order.save()
+    #
+    #                     # send mail
+    #                     email = order.user.email
+    #                     subject = "Xác nhận đơn hàng đã được giao thành công"
+    #                     content = """
+    #                         Chào {0},
+    #                         Chúng tôi đã ghi nhận thanh toán của bạn.
+    #                         Chi tiết:
+    #                         Mã đơn hàng: {1}
+    #                         Tên cửa hàng: {2}
+    #                         Tên khách hàng nhận: {3}
+    #                         Địa chỉ giao hàng: {4}
+    #                         Tổng thanh toán: {5:,.0f} VND
+    #                         Hình thức thanh toán: {6}
+    #                         Ngày thanh toán: {7}
+    #                         Cám ơn bạn đã tin tưởng chọn dịch vụ của chúng tôi.
+    #                         Mọi thắc mắc và yêu cầu hỗ trợ xin gửi về địa chỉ foodlocationapp@gmail.com.
+    #                         """.format(order.user.first_name + " " + order.user.last_name,
+    #                                    order.pk, order.store.name_store,
+    #                                    order.receiver_name, order.receiver_address,
+    #                                    order.amount, order.paymentmethod.name, order.payment_date)
+    #                     if email and subject and content:
+    #                         send_email = EmailMessage(subject, content, to=[email])
+    #                         send_email.send()
+    #                         return Response(data={"message": "Gửi mail thành công! Đã xác nhận đơn hàng giao hàng thành công!"},
+    #                                         status=status.HTTP_200_OK)
+    #
+    #                 return Response({'message': f'Đã xác nhận đơn hàng {pk} giao hàng thành công!'},
+    #                                 status=status.HTTP_200_OK)
+    #         return Response({'message': f'Đơn hàng {pk} không thuộc quyền xử lý của bạn. Cập nhật không thành công!'},
+    #                         status=status.HTTP_404_NOT_FOUND)
+    #
+    #     return Response({'message': f'Đơn hàng {pk} xác nhận không thành công. Vui lòng thử lại!'},
+    #                     status=status.HTTP_404_NOT_FOUND)
 
 
 class OrderDetailViewSet(viewsets.ViewSet, generics.RetrieveUpdateDestroyAPIView):
