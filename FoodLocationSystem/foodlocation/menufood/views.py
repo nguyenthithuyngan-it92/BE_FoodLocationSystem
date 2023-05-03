@@ -18,6 +18,7 @@ from .serializers import (
     PaymentMethodSerializer
 )
 from . import paginators
+import json
 from .perms import CommentOwner
 from django.db.models import Count
 from django.core.mail import send_mail, EmailMessage
@@ -482,7 +483,7 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
         # Lấy MenuItem
         menu_item_id = request.data.get('menu_item')
         try:
-            menu_item = MenuItem.objects.get(pk=menu_item_id, store=user)
+            menu_item = MenuItem.objects.get(pk=menu_item_id)
         except MenuItem.DoesNotExist:
             return Response({"message": f"Không tìm thấy menu nào của cửa hàng {user.name_store}! Vui lòng tạo menu!"},
                             status=status.HTTP_404_NOT_FOUND)
@@ -493,15 +494,15 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
         start_time = request.data.get('start_time')
         end_time = request.data.get('end_time')
         description = request.data.get('description')
-        image = request.data.get('image')
+        image_food = request.data.get('image_food')
 
         if name != "" and price != "":
             food = Food.objects.create(name=name, active=True, price=price, description=description,
                                        start_time=start_time, end_time=end_time,
-                                       image=image, menu_item=menu_item)
+                                       image_food=image_food, menu_item=menu_item)
 
             # Gắn tag vào food
-            tags = request.data.get("tags")
+            tags = json.loads(request.data.get("tags"))
             if tags is not None:
                 for tag in tags:
                     try:
