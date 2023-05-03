@@ -14,9 +14,12 @@ router.register('order-details', views.OrderDetailViewSet, basename='order-detai
 router.register('comments', views.CommentViewSet, basename='comment')
 router.register('subcribes', views.SubcribeViewSet, basename='subcribe')
 router.register('food-store', views.FoodStoreViewSet, basename='food-store')
+router.register('food-list', views.FoodByStoreViewSet, basename='food-list')
 
 urlpatterns = [
     path('', include(router.urls)),
     path('admin/', admin_site.urls),
-    path('revenue-stats-month/', views.RevenueStatMonthView.as_view(), name='revenue-stats-month')
+    path('revenue-stats-month/', views.RevenueStatMonth.as_view(), name='revenue-stats-month'),
+    path('revenue-stats-quarter/', views.RevenueStatsQuarter.as_view(), name='revenue-stats-quarter'),
+    path('revenue-stats-year/', views.RevenueStatsYear.as_view(), name='revenue-stats-year')
 ]
