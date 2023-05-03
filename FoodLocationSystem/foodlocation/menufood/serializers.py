@@ -27,7 +27,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'password', 'first_name', 'last_name', 'avatar', 'email', 'phone', 'image',
-                  'name_store', 'address', 'user_role']
+                  'name_store', 'address', 'user_role', 'is_verify']
         extra_kwargs = {
             'avatar': {'write_only': True},
             'password': {'write_only': True}
@@ -90,7 +90,6 @@ class AuthorizedFoodDetailsSerializer(FoodDetailsSerializer):
 class MenuItemSerializer(serializers.ModelSerializer):
     food_count = serializers.SerializerMethodField()
     store = UserSerializer()
-
 
     def get_food_count(self, menu):
         return menu.food_count
