@@ -898,6 +898,76 @@ class CommentViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPI
     permission_classes = [CommentOwner, ]
 
 
+class SubcribeViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPIView, generics.UpdateAPIView):
+    queryset = Subcribes.objects.filter(active=True)
+    serializer_class = SubcribeSerializer
+
+    def get_permissions(self):
+        if self.action in ['post', 'delete', 'destroy']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
+    # lấy danh sách subcribes theo từng cửa hàng
+    @action(methods=['get'], detail=True)
+    def get_sub_by_store_id(self, request, pk):
+        try:
+            store = User.objects.get(id=pk, user_role=User.STORE)
+            if store:
+                subs = Subcribes.objects.filter(store=pk)
+
+                serializer = SubcribeSerializer(subs, many=True)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'error': 'Store not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    # đếm tổng follower theo từng cửa hàng
+    @action(methods=['get'], detail=True)
+    def count_follower_by_store(self, request, pk):
+        try:
+            store = User.objects.get(id=pk, user_role=User.STORE)
+            if store:
+                follower = User.objects.filter(id=pk)
+                follower = follower.annotate(total_followers=Count('store'))
+                data = [{'store_id': f.id, 'name_store': f.name_store, 'total_followers': f.total_followers}
+                        for f in follower]
+                return Response(data, status=status.HTTP_200_OK)
+            return Response({'error': 'Không tìm thấy thông tin!'}, status=status.HTTP_404_NOT_FOUND)
+        except User.DoesNotExist:
+            return Response({'error': 'Không tìm thấy thông tin!'}, status=status.HTTP_404_NOT_FOUND)
+
+    def post(self, request):
+        try:
+            follower = request.user
+            store_id = request.data.get('store_id')
+            store = User.objects.get(id=store_id)
+
+            sub = Subcribes.objects.create(follower=follower, store=store)
+
+            # serializer = SubcribeSerializer(sub)
+            return Response(request.data, status=status.HTTP_201_CREATED)
+        except User.DoesNotExist:
+            return Response({'message': 'Người dùng không tồn tại!'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, sub_id):
+        try:
+            sub = Subcribes.objects.get(id=sub_id)
+
+            #Check permission
+            if request.user != sub.follower:
+                return Response({'message': 'Bạn không có quyền để xóa!'}, status=status.HTTP_401_UNAUTHORIZED)
+
+            sub.delete()
+
+            return Response({'message': 'Hủy theo dõi thành công!!!'}, status=status.HTTP_200_OK)
+
+        except Subcribes.DoesNotExist:
+            return Response({'message': 'Theo dõi không được tìm thấy!'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class FoodByStoreViewSet(viewsets.ViewSet):
     serializer_class = FoodSerializer
 
