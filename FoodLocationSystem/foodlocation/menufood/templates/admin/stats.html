@@ -1,0 +1,117 @@
+<!--{% extends 'admin/base_site.html' %}-->
+<!--{% block title %} Ăn uống - Thống kê {% endblock%}-->
+<!--{% block extrahead %}-->
+<!--    {{ block.super }}-->
+<!--    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.css" integrity="sha512-gX9Qa1l13uF+JzV7q3rjNzV7kb18tlN0hRIOuOZtM2QOu8HLflGw7V3qyFbO7t0oEKKonMuJOi0bIPZxsrddHg==" crossorigin="anonymous" referrerpolicy="no-referrer" />-->
+<!--    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js" integrity="sha512-+6JWdNqlGof3q9+zRRou7vfv8WpRwR5l5S5DQTo1A8W5mJZtP17iVukmCflIGaQVr3qFgyi7Vp8fKMbDr7VhNw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>-->
+<!--{% endblock %}-->
+
+
+<!--{% block content %}-->
+<!--    <div class="container-fluid">-->
+<!--        <h1 class="h3 mb-4 text-gray-800">{{ title }}</h1>-->
+<!--        <div class="row">-->
+<!--            <div class="col-md-6">-->
+<!--                <canvas id="month-chart"></canvas>-->
+<!--            </div>-->
+<!--            <div class="col-md-6">-->
+<!--                <canvas id="quarter-chart"></canvas>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--        <div class="row mt-4">-->
+<!--            <div class="col-md-12">-->
+<!--                <canvas id="year-chart"></canvas>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    <script>-->
+<!--        var monthData = {{ month_data | safe }};-->
+<!--        var quarterData = {{ quarter_data | safe }};-->
+<!--        var yearData = {{ year_data | safe }};-->
+
+<!--        var monthCtx = document.getElementById('month-chart').getContext('2d');-->
+<!--        var monthChart = new Chart(monthCtx, {-->
+<!--            type: 'bar',-->
+<!--            data: {-->
+<!--                labels: monthData.map(function(data) {-->
+<!--                    return moment(data.month).format('MMMM YYYY');-->
+<!--                }),-->
+<!--                datasets: [{-->
+<!--                    label: 'Tổng số sản phẩm',-->
+<!--                    data: monthData.map(function(data) {-->
+<!--                        return data.total;-->
+<!--                    }),-->
+<!--                    backgroundColor: 'rgba(54, 162, 235, 0.5)',-->
+<!--                    borderColor: 'rgba(54, 162, 235, 1)',-->
+<!--                    borderWidth: 1-->
+<!--                }]-->
+<!--            },-->
+<!--            options: {-->
+<!--                scales: {-->
+<!--                    yAxes: [{-->
+<!--                        ticks: {-->
+<!--                            beginAtZero: true-->
+<!--                        }-->
+<!--                    }]-->
+<!--                }-->
+<!--            }-->
+<!--        });-->
+
+<!--        var quarterCtx = document.getElementById('quarter-chart').getContext('2d');-->
+<!--        var quarterChart = new Chart(quarterCtx, {-->
+<!--            type: 'bar',-->
+<!--            data: {-->
+<!--                labels: quarterData.map(function(data) {-->
+<!--                    return moment(data.quarter).format('Q YYYY');-->
+<!--                            }),-->
+<!--            datasets: [{-->
+<!--                label: 'Tổng số sản phẩm',-->
+<!--                data: quarterData.map(function(data) {-->
+<!--                    return data.total;-->
+<!--                }),-->
+<!--                backgroundColor: 'rgba(255, 206, 86, 0.5)',-->
+<!--                borderColor: 'rgba(255, 206, 86, 1)',-->
+<!--                borderWidth: 1-->
+<!--            }]-->
+<!--        },-->
+<!--        options: {-->
+<!--            scales: {-->
+<!--                yAxes: [{-->
+<!--                    ticks: {-->
+<!--                        beginAtZero: true-->
+<!--                    }-->
+<!--                }]-->
+<!--            }-->
+<!--        }-->
+<!--    });-->
+
+<!--    var yearCtx = document.getElementById('year-chart').getContext('2d');-->
+<!--    var yearChart = new Chart(yearCtx, {-->
+<!--        type: 'bar',-->
+<!--        data: {-->
+<!--            labels: yearData.map(function(data) {-->
+<!--                return moment(data.year).format('YYYY');-->
+<!--            }),-->
+<!--            datasets: [{-->
+<!--                label: 'Tổng số sản phẩm',-->
+<!--                data: yearData.map(function(data) {-->
+<!--                    return data.total;-->
+<!--                }),-->
+<!--                backgroundColor: 'rgba(75, 192, 192, 0.5)',-->
+<!--                borderColor: 'rgba(75, 192, 192, 1)',-->
+<!--                borderWidth: 1-->
+<!--            }]-->
+<!--        },-->
+<!--        options: {-->
+<!--            scales: {-->
+<!--                yAxes: [{-->
+<!--                    ticks: {-->
+<!--                        beginAtZero: true-->
+<!--                    }-->
+<!--                }]-->
+<!--            }-->
+<!--        }-->
+<!--    });-->
+<!--</script>-->
+<!--{% endblock %}-->

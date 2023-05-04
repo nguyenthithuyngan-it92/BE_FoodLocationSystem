@@ -1,18 +1,57 @@
 from django.contrib import admin
-from .models import MenuItem, Food, User, Tag, PaymentMethod, Subcribes
+from .models import MenuItem, Food, User, Tag, PaymentMethod, Subcribes, OrderDetail
 from django.contrib.auth.models import Permission, Group
 from django import forms
 from ckeditor_uploader.widgets import CKEditorUploadingWidget
 from django.utils.html import mark_safe
 from . import cloud_path
+from django.urls import path
+from django.http import HttpResponseForbidden
+from django.db.models import Count, Sum
+from django.db.models.functions import TruncMonth, TruncQuarter, TruncYear
+from datetime import date
+from django.template.response import TemplateResponse
 
 
 # cập nhật trang thống kê
 class FoodLocationAppAdminSite(admin.AdminSite):
     site_header = 'Trang quản lý địa điểm ăn uống'
 
-
-admin_site = FoodLocationAppAdminSite(name='myadmin')
+    # def get_urls(self):
+    #     return [
+    #         path('stats/', self.stats_view)
+    #     ] + super().get_urls()
+    #
+    # def stats_view(self, request):
+    #     if not request.user.is_superuser:
+    #         raise HttpResponseForbidden()
+    #     else:
+    #         #Lấy danh sách các cửa hàng
+    #         store_locations = User.objects.filter(is_active=True, is_verify=True, user_role=1)
+    #
+    #         #Lấy ngày hiện tại
+    #         today = date.today()
+    #
+    #         #Tính toán theo tháng, quý và năm
+    #         month_data = OrderDetail.objects.filter(order__created_date__month=today.month).\
+    #                     annotate(month=TruncMonth('order__created_date')).\
+    #                     values('month').annotate(total=Sum('quantity'))
+    #         quarter_data = OrderDetail.objects.filter(order__created_date__quarter=(today.month - 1) // 3 + 1).\
+    #                     annotate(quarter=TruncQuarter('order__created_date')).\
+    #                     values('quarter').annotate(total=Sum('quantity'))
+    #         year_data = OrderDetail.objects.filter(order__created_date__year=today.year).\
+    #                     annotate(year=TruncYear('order__created_date')).\
+    #                     values('year').annotate(total=Sum('quantity'))
+    #
+    #         #Hiển thị thông tin trên trang HTML
+    #         context = {
+    #             'title': "Thống kê tần suất bán hàng, tổng sản phẩm kinh doanh của các cửa hàng",
+    #             'store_locations': store_locations,
+    #             'month_data': month_data,
+    #             'quarter_data': quarter_data,
+    #             'year_data': year_data,
+    #         }
+    #     return TemplateResponse(request, 'admin/stats.html', context)
 
 
 class UserAdmin(admin.ModelAdmin):
@@ -132,6 +171,7 @@ class FoodAdmin(admin.ModelAdmin):
         return qs.filter(menu_item__store__user_role=User.STORE)
 
 
+admin_site = FoodLocationAppAdminSite(name='myadmin')
 admin_site.register(User, UserAdmin)
 admin_site.register(Subcribes, SubcribesAdmin)
 admin_site.register(MenuItem, MenuItemAdmin)

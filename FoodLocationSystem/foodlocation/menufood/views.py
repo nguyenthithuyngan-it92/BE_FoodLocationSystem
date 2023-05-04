@@ -20,14 +20,11 @@ from .serializers import (
     PaymentMethodSerializer
 )
 from . import paginators
+import json
 from .perms import CommentOwner
-from django.db.models import Count, Sum, F, When, Case, DecimalField
-from django.utils import timezone
+from django.db.models import Count
 from django.core.mail import send_mail, EmailMessage
-from django.db.models.functions import TruncMonth, TruncQuarter, TruncYear
-from django.http import JsonResponse
-from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
+from datetime import datetime
 
 
 class TagViewSet(viewsets.ModelViewSet):
@@ -404,7 +401,9 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
         try:
             user = request.user
             if user == self.get_object().store:
-                return super().destroy(request, *args, **kwargs)
+                super().destroy(request, *args, **kwargs)
+                return Response({"message": "Xóa thông tin menu thành công!"},
+                                status=status.HTTP_200_OK)
 
             return Response({"message": f"Memu này không thuộc quyền xóa của bạn!"},
                             status=status.HTTP_403_FORBIDDEN)
@@ -489,7 +488,7 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
         # Lấy MenuItem
         menu_item_id = request.data.get('menu_item')
         try:
-            menu_item = MenuItem.objects.get(pk=menu_item_id, store=user)
+            menu_item = MenuItem.objects.get(pk=menu_item_id)
         except MenuItem.DoesNotExist:
             return Response({"message": f"Không tìm thấy menu nào của cửa hàng {user.name_store}! Vui lòng tạo menu!"},
                             status=status.HTTP_404_NOT_FOUND)
@@ -500,15 +499,15 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
         start_time = request.data.get('start_time')
         end_time = request.data.get('end_time')
         description = request.data.get('description')
-        image = request.data.get('image')
+        image_food = request.data.get('image_food')
 
         if name != "" and price != "":
             food = Food.objects.create(name=name, active=True, price=price, description=description,
                                        start_time=start_time, end_time=end_time,
-                                       image=image, menu_item=menu_item)
+                                       image_food=image_food, menu_item=menu_item)
 
             # Gắn tag vào food
-            tags = request.data.get("tags")
+            tags = json.loads(request.data.get("tags"))
             if tags is not None:
                 for tag in tags:
                     try:
@@ -517,6 +516,31 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
                         return Response({"message": f"Không tìm thấy tag!"},
                                         status=status.HTTP_404_NOT_FOUND)
                     food.tags.add(tag)
+
+            # followers = Subcribes.objects.filter(store=user.id)
+            # if followers:
+            #     for f in followers:
+            #         # send mail
+            #         email = f.follower.email
+            #         subject = "Xác nhận đơn hàng đã được giao thành công"
+            #         content = """
+            #             Chào {0},
+            #             Cửa hàng {1} - {7} bạn theo dõi vừa đăng món ăn mới.
+            #             Chi tiết:
+            #             Tên món ăn: {2}
+            #             Giá bán: {3:,.0f} VND
+            #             Thời gian bán trong ngày: {4} - {5}
+            #             Danh mục: {6}
+            #             Cám ơn bạn đã tin tưởng chọn dịch vụ của chúng tôi.
+            #             Mọi thắc mắc và yêu cầu hỗ trợ xin gửi về địa chỉ foodlocationapp@gmail.com.
+            #             """.format(f.follower.first_name + " " + f.follower.last_name,
+            #                        user.name_store, name,
+            #                        price, start_time, end_time,
+            #                        menu_item.name, user.address)
+            #         if email and subject and content:
+            #             send_email = EmailMessage(subject, content, to=[email])
+            #             send_email.send()
+            #             return Response(status=status.HTTP_200_OK)
 
             return Response({"message": f"Lưu thông tin món ăn thành công cho cửa hàng {user.name_store}!"},
                             status=status.HTTP_201_CREATED)
@@ -556,7 +580,9 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
         try:
             user = request.user
             if user == self.get_object().menu_item.store:
-                return super().destroy(request, *args, **kwargs)
+                super().destroy(request, *args, **kwargs)
+                return Response({"message": "Xóa thông tin món ăn thành công!"},
+                                status=status.HTTP_200_OK)
 
             return Response({"message": f"Món ăn này không thuộc quyền xóa của bạn!"},
                             status=status.HTTP_403_FORBIDDEN)
@@ -725,7 +751,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
         except Order.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-    # xác nhận đơn hàng - order_status=ACCEPTED
+    # xác nhận đơn hàng
     @action(methods=['post'], detail=True, url_path='confirm-order')
     def confirm_order(self, request, pk):
         user = request.user
@@ -746,45 +772,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                     order.save()
                     return Response({'message': f'Đơn hàng {pk} đã được xác nhận thành công!'},
                                     status=status.HTTP_200_OK)
-            return Response({'message': f'Đơn hàng {pk} không thuộc quyền xử lý của bạn. Cập nhật không thành công!'},
-                            status=status.HTTP_404_NOT_FOUND)
 
-        return Response({'message': f'Đơn hàng {pk} xác nhận không thành công. Vui lòng thử lại!'},
-                        status=status.HTTP_404_NOT_FOUND)
-
-    @action(methods=['get'], detail=False, url_path='accepted-order')
-    def get_list_accepted(self, request):
-        user = self.request.user
-        if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
-            return Response({"message": "Bạn không có quyền thực hiện chức năng này.",
-                             "statusCode": status.HTTP_403_FORBIDDEN},
-                            status=status.HTTP_403_FORBIDDEN)
-
-        try:
-            orders = Order.objects.filter(store=user, order_status=Order.ACCEPTED)
-
-            return Response(OrderSerializer(orders, many=True).data,
-                            status=status.HTTP_200_OK)
-
-        except Order.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-
-    # xác nhận đơn hàng giao thành công - order_status=SUCCESSED
-    @action(methods=['post'], detail=True, url_path='complete-order')
-    def complete_order(self, request, pk):
-        user = request.user
-        if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
-            return Response({"message": "Bạn không có quyền thực hiện chức năng này."},
-                            status=status.HTTP_403_FORBIDDEN)
-
-        try:
-            order = Order.objects.get(id=pk)
-        except Order.DoesNotExist:
-            return Response({'message': f'Đơn hàng không được tìm thấy hoặc đã được xử lý!'},
-                            status=status.HTTP_404_NOT_FOUND)
-
-        if request.method == 'POST':
-            if order.store.id == user.id:
                 if order.order_status == Order.ACCEPTED:
                     if order.payment_status == 0:
                         order.order_status = Order.SUCCESSED
@@ -816,14 +804,86 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                             send_email.send()
                             return Response(data={"message": "Gửi mail thành công! Đã xác nhận đơn hàng giao hàng thành công!"},
                                             status=status.HTTP_200_OK)
-
-                    return Response({'message': f'Đã xác nhận đơn hàng {pk} giao hàng thành công!'},
-                                    status=status.HTTP_200_OK)
+                        return Response({'message': f'Đơn hàng {pk} đã được xác nhận thành công! Khách hàng chưa nhận được mail!'},
+                                        status=status.HTTP_200_OK)
             return Response({'message': f'Đơn hàng {pk} không thuộc quyền xử lý của bạn. Cập nhật không thành công!'},
                             status=status.HTTP_404_NOT_FOUND)
 
         return Response({'message': f'Đơn hàng {pk} xác nhận không thành công. Vui lòng thử lại!'},
                         status=status.HTTP_404_NOT_FOUND)
+
+    @action(methods=['get'], detail=False, url_path='accepted-order')
+    def get_list_accepted(self, request):
+        user = self.request.user
+        if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
+            return Response({"message": "Bạn không có quyền thực hiện chức năng này.",
+                             "statusCode": status.HTTP_403_FORBIDDEN},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            orders = Order.objects.filter(store=user, order_status=Order.ACCEPTED)
+
+            return Response(OrderSerializer(orders, many=True).data,
+                            status=status.HTTP_200_OK)
+
+        except Order.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+    # xác nhận đơn hàng giao thành công - order_status=SUCCESSED
+    # @action(methods=['post'], detail=True, url_path='complete-order')
+    # def complete_order(self, request, pk):
+    #     user = request.user
+    #     if user.user_role != User.STORE or user.is_active == 0 or user.is_superuser == 1 or user.is_staff == 1:
+    #         return Response({"message": "Bạn không có quyền thực hiện chức năng này."},
+    #                         status=status.HTTP_403_FORBIDDEN)
+    #
+    #     try:
+    #         order = Order.objects.get(id=pk)
+    #     except Order.DoesNotExist:
+    #         return Response({'message': f'Đơn hàng không được tìm thấy hoặc đã được xử lý!'},
+    #                         status=status.HTTP_404_NOT_FOUND)
+    #
+    #     if request.method == 'POST':
+    #         if order.store.id == user.id:
+    #             if order.order_status == Order.ACCEPTED:
+    #                 if order.payment_status == 0:
+    #                     order.order_status = Order.SUCCESSED
+    #                     order.payment_status = True
+    #                     order.save()
+    #
+    #                     # send mail
+    #                     email = order.user.email
+    #                     subject = "Xác nhận đơn hàng đã được giao thành công"
+    #                     content = """
+    #                         Chào {0},
+    #                         Chúng tôi đã ghi nhận thanh toán của bạn.
+    #                         Chi tiết:
+    #                         Mã đơn hàng: {1}
+    #                         Tên cửa hàng: {2}
+    #                         Tên khách hàng nhận: {3}
+    #                         Địa chỉ giao hàng: {4}
+    #                         Tổng thanh toán: {5:,.0f} VND
+    #                         Hình thức thanh toán: {6}
+    #                         Ngày thanh toán: {7}
+    #                         Cám ơn bạn đã tin tưởng chọn dịch vụ của chúng tôi.
+    #                         Mọi thắc mắc và yêu cầu hỗ trợ xin gửi về địa chỉ foodlocationapp@gmail.com.
+    #                         """.format(order.user.first_name + " " + order.user.last_name,
+    #                                    order.pk, order.store.name_store,
+    #                                    order.receiver_name, order.receiver_address,
+    #                                    order.amount, order.paymentmethod.name, order.payment_date)
+    #                     if email and subject and content:
+    #                         send_email = EmailMessage(subject, content, to=[email])
+    #                         send_email.send()
+    #                         return Response(data={"message": "Gửi mail thành công! Đã xác nhận đơn hàng giao hàng thành công!"},
+    #                                         status=status.HTTP_200_OK)
+    #
+    #                 return Response({'message': f'Đã xác nhận đơn hàng {pk} giao hàng thành công!'},
+    #                                 status=status.HTTP_200_OK)
+    #         return Response({'message': f'Đơn hàng {pk} không thuộc quyền xử lý của bạn. Cập nhật không thành công!'},
+    #                         status=status.HTTP_404_NOT_FOUND)
+    #
+    #     return Response({'message': f'Đơn hàng {pk} xác nhận không thành công. Vui lòng thử lại!'},
+    #                     status=status.HTTP_404_NOT_FOUND)
 
 
 class OrderDetailViewSet(viewsets.ViewSet, generics.RetrieveUpdateDestroyAPIView):
@@ -836,44 +896,6 @@ class CommentViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPI
     queryset = Comment.objects.filter(active=True)
     serializer_class = CommentSerializer
     permission_classes = [CommentOwner, ]
-
-
-class SubcribeViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPIView, generics.UpdateAPIView):
-    queryset = Subcribes.objects.filter(active=True)
-    serializer_class = SubcribeSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        try:
-            follower = request.user
-            store_id = request.data.get('store_id')
-            store = User.objects.get(id=store_id)
-
-            sub = Subcribes.objects.create(follower=follower, store=store)
-
-            # serializer = SubcribeSerializer(sub)
-            return Response(request.data, status=status.HTTP_201_CREATED)
-        except User.DoesNotExist:
-            return Response({'message': 'Người dùng không tồn tại!'}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, sub_id):
-        try:
-            sub = Subcribes.objects.get(id=sub_id)
-
-            #Check permission
-            if request.user != sub.follower:
-                return Response({'message': 'Bạn không có quyền để xóa!'}, status=status.HTTP_401_UNAUTHORIZED)
-
-            sub.delete()
-
-            return Response({'message': 'Hủy theo dõi thành công!!!'}, status=status.HTTP_200_OK)
-
-        except Subcribes.DoesNotExist:
-            return Response({'message': 'Theo dõi không được tìm thấy!'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class FoodByStoreViewSet(viewsets.ViewSet):
@@ -895,8 +917,13 @@ class FoodByStoreViewSet(viewsets.ViewSet):
         except User.DoesNotExist:
             return Response({'error': 'Store not found.'}, status=404)
 
-#Thống kê doanh thu các sản phẩm, danh mục sản phẩm theo tháng, quý và năm
 
+class PaymentmethodViewSet(viewsets.ViewSet, generics.ListAPIView):
+    serializer_class = PaymentMethodSerializer
+    queryset = PaymentMethod.objects.all()
+
+
+#Cửa hàng được phép xem: Thống kê doanh thu các sản phẩm, danh mục sản phẩm theo tháng, quý và năm
 
 class RevenueStatMonth(APIView):
     permission_classes = [permissions.AllowAny]
