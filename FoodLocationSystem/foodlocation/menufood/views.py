@@ -898,7 +898,39 @@ class CommentViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPI
 class SubcribeViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPIView, generics.UpdateAPIView):
     queryset = Subcribes.objects.filter(active=True)
     serializer_class = SubcribeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in ['post', 'delete', 'destroy']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
+    # lấy danh sách subcribes theo từng cửa hàng
+    @action(methods=['get'], detail=True)
+    def get_sub_by_store_id(self, request, pk):
+        try:
+            store = User.objects.get(id=pk, user_role=User.STORE)
+            if store:
+                subs = Subcribes.objects.filter(store=pk)
+
+                serializer = SubcribeSerializer(subs, many=True)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'error': 'Store not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    # đếm tổng follower theo từng cửa hàng
+    @action(methods=['get'], detail=True)
+    def count_follower_by_store(self, request, pk):
+        try:
+            store = User.objects.get(id=pk, user_role=User.STORE)
+            if store:
+                follower = User.objects.filter(id=pk)
+                follower = follower.annotate(total_followers=Count('store'))
+                data = [{'store_id': f.id, 'name_store': f.name_store, 'total_followers': f.total_followers}
+                        for f in follower]
+                return Response(data, status=status.HTTP_200_OK)
+            return Response({'error': 'Không tìm thấy thông tin!'}, status=status.HTTP_404_NOT_FOUND)
+        except User.DoesNotExist:
+            return Response({'error': 'Không tìm thấy thông tin!'}, status=status.HTTP_404_NOT_FOUND)
 
     def post(self, request):
         try:
