@@ -328,8 +328,7 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIV
         #     return Response({'error': str(e)})
 
 
-class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView,
-                      generics.CreateAPIView, generics.UpdateAPIView, generics.DestroyAPIView):
+class MenuItemViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.DestroyAPIView):
     serializer_class = MenuItemSerializer
 
     def get_queryset(self):
@@ -408,16 +407,16 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
             return Response({'error': 'Không tìm thấy menu!'}, status=status.HTTP_404_NOT_FOUND)
 
     # lấy danh sách các món ăn của từng menu
-    @action(methods=['get'], detail=True, url_path='foods')
-    def get_list_foods(self, request, pk):
-        menu = self.get_object()
-        food = menu.menuitem_food.filter(active=True)
-
-        kw = request.query_params.get('kw')
-        if kw:
-            food = food.filter(name__icontains=kw)
-
-        return Response(FoodSerializer(food, many=True, context={'request': request}).data, status=status.HTTP_200_OK)
+    # @action(methods=['get'], detail=True, url_path='foods')
+    # def get_list_foods(self, request, pk):
+    #     menu = self.get_object()
+    #     food = menu.menuitem_food.filter(active=True)
+    #
+    #     kw = request.query_params.get('kw')
+    #     if kw:
+    #         food = food.filter(name__icontains=kw)
+    #
+    #     return Response(FoodSerializer(food, many=True, context={'request': request}).data, status=status.HTTP_200_OK)
 
     # thiết lập trạng thái menu (active)
     @action(methods=['post'], detail=True, url_path='set-status-menu')
@@ -461,7 +460,7 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
                         status=status.HTTP_404_NOT_FOUND)
 
 
-class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.RetrieveAPIView, generics.DestroyAPIView):
+class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.DestroyAPIView):
     serializer_class = FoodSerializer()
     queryset = Food.objects.all()
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -667,7 +666,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                             status=status.HTTP_201_CREATED, headers=headers)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # xem chi tiết đơn hàng cho user
+    # xem chi tiết đơn hàng cho user (==chưa dùng bên FE==)
     def retrieve(self, request, pk):
         try:
             order = Order.objects.get(id=pk)
