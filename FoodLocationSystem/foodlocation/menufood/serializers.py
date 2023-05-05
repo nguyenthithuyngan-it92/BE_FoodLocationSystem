@@ -101,13 +101,18 @@ class MenuItemSerializer(serializers.ModelSerializer):
 
 class StoreSerializer(serializers.ModelSerializer):
     menu_count = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField(source='avatar')
+
+    def get_image(self, user):
+        if user.avatar:
+            return '{cloud_path}{image_name}'.format(cloud_path=cloud_path, image_name=user.avatar)
 
     def get_menu_count(self, store):
         return store.menu_count
 
     class Meta:
         model = User
-        fields = ['id', 'name_store', 'is_active', 'address', 'is_verify', 'menu_count', 'user_role']
+        fields = ['id', 'name_store', 'avatar', 'image', 'is_active', 'address', 'email', 'phone', 'is_verify', 'menu_count', 'user_role']
 
 
 class PaymentMethodSerializer(serializers.ModelSerializer):
@@ -140,16 +145,6 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ['id', 'content', 'created_date', 'user']
-
-
-# class ReviewSerializer(serializers.ModelSerializer):
-#     food_id = serializers.IntegerField()
-#     store_id = serializers.IntegerField()
-#     rating = serializers.IntegerField(min_value=1, max_value=5, default=0)
-#
-#     class Meta:
-#         model = Rating
-#         fields = '__all__'
 
 
 class SubcribeSerializer(serializers.ModelSerializer):
