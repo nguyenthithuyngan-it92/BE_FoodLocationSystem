@@ -16,8 +16,10 @@ router.register('comments', views.CommentViewSet, basename='comment')
 router.register('subcribes', views.SubcribeViewSet, basename='subcribe')
 router.register('food-store', views.FoodStoreViewSet, basename='food-store')
 router.register('food-list', views.FoodByStoreViewSet, basename='food-list')
+# router.register('paid-momo', views.PaidMomoView, basename='paid-momo')
 
 urlpatterns = [
     path('', include(router.urls)),
     path('admin/', admin_site.urls),
+    path('create_payment/', views.create_payment, name='create_payment'),
 ]

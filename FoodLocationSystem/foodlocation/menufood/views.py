@@ -1,3 +1,5 @@
+from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets, permissions, generics, parsers, status
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action, permission_classes
@@ -22,6 +24,12 @@ import json
 from .perms import CommentOwner
 from django.db.models import Count
 from django.core.mail import send_mail, EmailMessage
+import json
+import time
+import hmac
+import hashlib
+import http.client
+from django.http import JsonResponse
 
 
 # TAG
@@ -952,3 +960,71 @@ class FoodByStoreViewSet(viewsets.ViewSet):
 class PaymentmethodViewSet(viewsets.ViewSet, generics.ListAPIView):
     serializer_class = PaymentMethodSerializer
     queryset = PaymentMethod.objects.all()
+
+
+@csrf_exempt
+def create_payment(request):
+    json_data = request.body.decode('utf-8')
+    data = json.loads(json_data)
+
+    order_info = data['orderInfo']
+    redirect_url = data['redirectUrl']
+    ipn_url = data['ipnUrl']
+    amount = data['amount']
+    extra_data = data['extraData']
+    # order_id = data['orderId']
+
+    partner_code = "MOMO"
+    access_key = "F8BBA842ECF85"
+    secret_key = "K951B6PE1waDMi640xX08PD3vg6EkVlz"
+    request_id = partner_code + str(int(time.time()))
+    order_id = request_id
+    # order_info = "pay with MoMo"
+    # redirect_url = "https://momo.vn/return"
+    # ipn_url = "https://callback.url/notify"
+    # amount = "50000"
+    request_type = "captureWallet"
+    # extra_data = ""
+
+    # before sign HMAC SHA256 with format
+    # accessKey=$accessKey&amount=$amount&extraData=$extraData&ipnUrl=$ipnUrl&orderId=$orderId&orderInfo=$orderInfo&partnerCode=$partnerCode&redirectUrl=$redirectUrl&requestId=$requestId&requestType=$requestType
+    raw_signature = "accessKey=" + access_key + "&amount=" + amount + "&extraData=" + extra_data + "&ipnUrl=" + ipn_url + "&orderId=" + order_id + "&orderInfo=" + order_info + "&partnerCode=" + partner_code + "&redirectUrl=" + redirect_url + "&requestId=" + request_id + "&requestType=" + request_type
+
+    # signature
+    signature = hmac.new(secret_key.encode('utf-8'), raw_signature.encode('utf-8'), hashlib.sha256).hexdigest()
+
+    # json object send to MoMo endpoint
+    data = {
+        'partnerCode': partner_code,
+        'accessKey': access_key,
+        'requestId': request_id,
+        'amount': amount,
+        'orderId': order_id,
+        'orderInfo': order_info,
+        'redirectUrl': redirect_url,
+        'ipnUrl': ipn_url,
+        'extraData': extra_data,
+        'requestType': request_type,
+        'signature': signature,
+        'lang': 'en'
+    }
+    json_data = json.dumps(data)
+
+    # create the HTTP request
+    conn = http.client.HTTPSConnection("test-payment.momo.vn")
+    headers = {
+        'Content-Type': 'application/json',
+        'Content-Length': len(json_data)
+    }
+    conn.request("POST", "/v2/gateway/api/create", json_data, headers)
+
+    # get the response
+    res = conn.getresponse()
+
+    # read the response body
+    response_data = res.read().decode("utf-8")
+    pay_url = json.loads(response_data)['payUrl']
+
+    conn.close()
+
+    return JsonResponse({ "status": status.HTTP_200_OK, "message": 'success', "data": { "payURL": pay_url}})
