@@ -2,14 +2,14 @@ import enum
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from ckeditor.fields import RichTextField
-from cloudinary.models import  CloudinaryField
+from cloudinary.models import CloudinaryField
 from enum import Enum as UserEnum
 
 # Create your models here.
 
 
 class User(AbstractUser):
-    avatar = CloudinaryField('avatar',default='', null=True)
+    avatar = CloudinaryField('avatar', default='', null=True)
     phone = models.CharField(max_length=11, unique=True)
     address = models.CharField(max_length=255, null=True)
 
@@ -49,9 +49,10 @@ class Food(BaseModel):
     name = models.CharField(max_length=255)
     price = models.DecimalField(max_digits=10, decimal_places=0)
     description = RichTextField(null=True)
-    image_food = CloudinaryField('image_food', default='', null=True)
     start_time = models.TimeField(null=True)
     end_time = models.TimeField(null=True)
+    image_food = CloudinaryField('image_food', default='', null=True)
+    # image = models.ImageField(upload_to='users/%Y/%m', null=True, default='')
 
     menu_item = models.ForeignKey('MenuItem', related_name='menuitem_food', on_delete=models.PROTECT)
     tags = models.ManyToManyField('Tag', related_name='foods')
@@ -127,6 +128,8 @@ class ActionBase(BaseModel):
 
 class Comment(ActionBase):
     content = models.CharField(max_length=255)
+    food = models.ForeignKey(Food, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     def __str__(self):
         return self.content

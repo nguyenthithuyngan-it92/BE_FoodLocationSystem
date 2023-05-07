@@ -91,7 +91,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'foodlocaiondb',
         'USER': 'root',
-        'PASSWORD': '2107',
+        'PASSWORD': '123456',
         'HOST': ''  # mặc định localhost
     }
 }
@@ -159,6 +159,11 @@ CORS_ALLOW_ALL_ORIGINS = True
 # (<<NTTN>>)
 # CLIENT_ID = 'PX1L78DG7sjxUgndorfk2LTH8ye0jOWbcpRON1lI'
 # CLIENT_SECRET = 'e2X37hXDnWDK1i2sNjCocfUqiDD6siUZKbB52xVjZ9yc2jYKE3PTtNvUNvPPukBGbKda5Iq9mU9L5aWiLZ0mkYpEprjJNkL6bkqnO3Rz4LxCrYDdgyE4Hpef1CL6P6IV'
+
+#(<<DTKN>>)
+CLIENT_ID = 'l8k5r5rRgKwsdHkBQIQjBbSdaL93odS3Uat6dtUk'
+CLIENT_SECRET = 'QIIXY3ZH9NqaUgl63V3MHe1YvjzdfgDXsW7tmiV799J2r9P0a78AwGgyxprpp0yx4LT0VPuuwpMBT7LyJ45aRQvjtxPWCP9xwORXabIxNYEwvpQZPkwrUOYUphWB9MTe'
+
 
 # config send email
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

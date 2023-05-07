@@ -33,9 +33,6 @@ class FoodLocationAppAdminSite(admin.AdminSite):
         })
 
 
-admin_site = FoodLocationAppAdminSite(name='myadmin')
-
-
 class UserAdmin(admin.ModelAdmin):
     list_display = ['pk', 'image', 'username', 'first_name', 'last_name', 'email',
                     'name_store', 'phone', 'address',
@@ -153,6 +150,7 @@ class FoodAdmin(admin.ModelAdmin):
         return qs.filter(menu_item__store__user_role=User.STORE)
 
 
+admin_site = FoodLocationAppAdminSite(name='myadmin')
 admin_site.register(User, UserAdmin)
 admin_site.register(Subcribes, SubcribesAdmin)
 admin_site.register(MenuItem, MenuItemAdmin)

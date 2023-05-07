@@ -21,5 +21,8 @@ router.register('food-list', views.FoodByStoreViewSet, basename='food-list')
 urlpatterns = [
     path('', include(router.urls)),
     path('admin/', admin_site.urls),
+    path('revenue-stats-month/', views.RevenueStatsMonth.as_view(), name='revenue-stats-month'),
+    path('revenue-stats-quarter/', views.RevenueStatsQuarter.as_view(), name='revenue-stats-quarter'),
+    path('revenue-stats-year/', views.RevenueStatsYear.as_view(), name='revenue-stats-year'),
     path('create_payment/', views.create_payment, name='create_payment'),
 ]

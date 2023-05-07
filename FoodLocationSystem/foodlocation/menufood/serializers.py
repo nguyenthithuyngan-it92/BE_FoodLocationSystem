@@ -44,7 +44,7 @@ class MenuItemSerializer2(serializers.ModelSerializer):
 
 class FoodSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField(source='image_food')
-    tags = TagSerializer(many=True)
+    tags = TagSerializer(many=True, read_only=True)
     menu_item = MenuItemSerializer2()
 
     def get_image(self, food):
@@ -145,16 +145,6 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ['id', 'content', 'created_date', 'user']
-
-
-# class ReviewSerializer(serializers.ModelSerializer):
-#     food_id = serializers.IntegerField()
-#     store_id = serializers.IntegerField()
-#     rating = serializers.IntegerField(min_value=1, max_value=5, default=0)
-#
-#     class Meta:
-#         model = Rating
-#         fields = '__all__'
 
 
 class SubcribeSerializer(serializers.ModelSerializer):
