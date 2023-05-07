@@ -24,7 +24,7 @@ import json
 from .perms import CommentOwner
 from django.db.models import Count
 from django.core.mail import send_mail, EmailMessage
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class TagViewSet(viewsets.ModelViewSet):
@@ -331,8 +331,7 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIV
         #     return Response({'error': str(e)})
 
 
-class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView,
-                      generics.CreateAPIView, generics.UpdateAPIView, generics.DestroyAPIView):
+class MenuItemViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.DestroyAPIView):
     serializer_class = MenuItemSerializer
 
     def get_queryset(self):
@@ -411,16 +410,16 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
             return Response({'error': 'Không tìm thấy menu!'}, status=status.HTTP_404_NOT_FOUND)
 
     # lấy danh sách các món ăn của từng menu
-    @action(methods=['get'], detail=True, url_path='foods')
-    def get_list_foods(self, request, pk):
-        menu = self.get_object()
-        food = menu.menuitem_food.filter(active=True)
-
-        kw = request.query_params.get('kw')
-        if kw:
-            food = food.filter(name__icontains=kw)
-
-        return Response(FoodSerializer(food, many=True, context={'request': request}).data, status=status.HTTP_200_OK)
+    # @action(methods=['get'], detail=True, url_path='foods')
+    # def get_list_foods(self, request, pk):
+    #     menu = self.get_object()
+    #     food = menu.menuitem_food.filter(active=True)
+    #
+    #     kw = request.query_params.get('kw')
+    #     if kw:
+    #         food = food.filter(name__icontains=kw)
+    #
+    #     return Response(FoodSerializer(food, many=True, context={'request': request}).data, status=status.HTTP_200_OK)
 
     # thiết lập trạng thái menu (active)
     @action(methods=['post'], detail=True, url_path='set-status-menu')
@@ -464,7 +463,7 @@ class MenuItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveA
                         status=status.HTTP_404_NOT_FOUND)
 
 
-class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.RetrieveAPIView, generics.DestroyAPIView):
+class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.DestroyAPIView):
     serializer_class = FoodSerializer()
     queryset = Food.objects.all()
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -670,7 +669,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                             status=status.HTTP_201_CREATED, headers=headers)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # xem chi tiết đơn hàng cho user
+    # xem chi tiết đơn hàng cho user (==chưa dùng bên FE==)
     def retrieve(self, request, pk):
         try:
             order = Order.objects.get(id=pk)
@@ -897,6 +896,10 @@ class CommentViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPI
     serializer_class = CommentSerializer
     permission_classes = [CommentOwner, ]
 
+    def get_queryset(self):
+        food_id = self.kwargs['id']
+        return Comment.objects.filter(food__id=food_id)
+
 
 class SubcribeViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPIView, generics.UpdateAPIView):
     queryset = Subcribes.objects.filter(active=True)
@@ -918,7 +921,7 @@ class SubcribeViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAP
                 serializer = SubcribeSerializer(subs, many=True)
                 return Response(serializer.data, status=status.HTTP_200_OK)
         except User.DoesNotExist:
-            return Response({'error': 'Store not found.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Không tìm thấy cửa hàng nào!!!!'}, status=status.HTTP_404_NOT_FOUND)
 
     # đếm tổng follower theo từng cửa hàng
     @action(methods=['get'], detail=True)
@@ -994,25 +997,24 @@ class PaymentmethodViewSet(viewsets.ViewSet, generics.ListAPIView):
 
 
 #Cửa hàng được phép xem: Thống kê doanh thu các sản phẩm, danh mục sản phẩm theo tháng, quý và năm
-
-class RevenueStatMonth(APIView):
+class RevenueStatsMonth(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         month_str = request.data.get('month')
         try:
-            month = datetime.strptime(month_str, '%Y-%m')
+            month = int(month_str)
         except:
-            return Response(data={"error_msg": "Invalid month format. Please use 'YYYY-MM' format."},
+            return Response(data={"error_msg": "Invalid month format. Please use 'MM' format."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        #Lấy danh sách tất cả các order detail trong tháng đó
-        order_details = OrderDetail.objects.filter(order__created_date__year=month.year,
-                                                   order__created_date__month=month.month)
-        #Tính tổng doanh thu của cửa hàng trong tháng đó
-        total_revenue = sum([order_detail.unit_price * order_detail.quantity
-                             for order_detail in order_details])
-        #Tạo danh sách các sản phẩm
+        # Lấy danh sách tất cả các order detail trong tháng đó
+        order_details = OrderDetail.objects.filter(order__created_date__month=month)
+
+        # Tính tổng doanh thu của cửa hàng trong tháng đó
+        total_revenue = sum([order_detail.unit_price * order_detail.quantity for order_detail in order_details])
+
+        # Tạo danh sách các sản phẩm
         items = []
         for order_detail in order_details:
             item = {
@@ -1021,15 +1023,79 @@ class RevenueStatMonth(APIView):
                 "food_price": order_detail.food.price,
                 "quantity": order_detail.quantity
             }
-            #Tìm kiếm danh mục của sản phẩm
+
+            # Tìm kiếm danh mục của sản phẩm
             menu_item = order_detail.food.menu_item
             if menu_item:
                 item["menu_item_id"] = menu_item.id
                 item["menu_item_name"] = menu_item.name
 
-            #Thêm sản phẩm vào danh sách
+            # Thêm sản phẩm vào danh sách
             items.append(item)
-        #Tạo danh sách các danh mục
+
+        # Tạo danh sách các danh mục
+        menu_items = []
+        for order_detail in order_details:
+            menu_item = order_detail.food.menu_item
+            if menu_item:
+                menu_item_total = sum([order.unit_price * order.quantity for order in order_details if order.food.menu_item == menu_item])
+                menu_item_dict = {
+                    "menu_item_id": menu_item.id,
+                    "menu_item_name": menu_item.name,
+                    "total_revenue": menu_item_total
+                }
+                # Thêm danh mục vào danh sách
+                menu_items.append(menu_item_dict)
+
+        # Trả về kết quả
+        return Response(data={
+            "total_revenue": total_revenue,
+            "items": items,
+            "menu_items": menu_items
+        }, status=status.HTTP_200_OK)
+
+
+class RevenueStatsQuarter(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        year_str = request.data.get('year')
+        quarter_str = request.data.get('quarter')
+        try:
+            year = int(year_str)
+            quarter = int(quarter_str)
+        except:
+            return Response(data={"error_msg": "Invalid year or quarter format. Please use 'YYYY' format for year and '1', '2', '3', or '4' for quarter."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Lấy danh sách tất cả các order detail trong quý đó
+        order_details = OrderDetail.objects.filter(order__created_date__year=year,
+                                                    order__created_date__month__in=[(quarter-1)*3 + 1, (quarter-1)*3 + 2, (quarter-1)*3 + 3])
+
+        # Tính tổng doanh thu của cửa hàng trong quý đó
+        total_revenue = sum([order_detail.unit_price * order_detail.quantity
+                             for order_detail in order_details])
+
+        # Tạo danh sách các sản phẩm
+        items = []
+        for order_detail in order_details:
+            item = {
+                "food_id": order_detail.food.id,
+                "food_name": order_detail.food.name,
+                "food_price": order_detail.food.price,
+                "quantity": order_detail.quantity
+            }
+
+            # Tìm kiếm danh mục của sản phẩm
+            menu_item = order_detail.food.menu_item
+            if menu_item:
+                item["menu_item_id"] = menu_item.id
+                item["menu_item_name"] = menu_item.name
+
+            # Thêm sản phẩm vào danh sách
+            items.append(item)
+
+        # Tạo danh sách các danh mục
         menu_items = []
         for order_detail in order_details:
             menu_item = order_detail.food.menu_item
@@ -1042,101 +1108,36 @@ class RevenueStatMonth(APIView):
                     "menu_item_name": menu_item.name,
                     "total_revenue": menu_item_total
                 }
-                #Thêm danh mục vào danh sách
+                # Thêm danh mục vào danh sách
                 menu_items.append(menu_item_dict)
-        #Trả về kết quả
-        return Response(data={
-            "total_revenue": total_revenue,
-            "items": items,
-            "menu_items": menu_items
-        }, status=status.HTTP_200_OK)
 
+        # Tạo danh sách các tháng trong quý
+        months = [(i, year) for i in [(quarter-1)*3 + 1, (quarter-1)*3 + 2, (quarter-1)*3 + 3]]
 
-class RevenueStatsQuarter(APIView):
-    permission_classes = [permissions.AllowAny]
+        # Tạo danh sách thống kê theo từng tháng
+        monthly_stats = []
+        for month_num, year_num in months:
+            # Lấy danh sách tất cả các order detail trong tháng đó
+            order_details = OrderDetail.objects.filter(order__created_date__year=year_num,
+                                                       order__created_date__month=month_num)
 
-    def post(self, request):
-        # quarter_str = request.data.get('quarter')
-        # try:
-        #     year, quarter_num = [int(x) for x in quarter_str.split('-')]
-        #     quarter_start_month = 3 * (quarter_num - 1) + 1
-        #     quarter_end_month = quarter_start_month + 2
-        #     quarter_start_date = datetime(year=year, month=quarter_start_month, day=1)
-        #     quarter_end_date = datetime(year=year, month=quarter_end_month,
-        #                                 day=calendar.monthrange(year, quarter_end_month)[1])
-        # except:
-        #     return Response(data={"error_msg": "Invalid quarter format. Please use 'YYYY-QN' format."},
-        #                     status=status.HTTP_400_BAD_REQUEST)
-        revenue_stats_from_str = request.data.get('revenue_stats_from')
-        revenue_stats_to_str = request.data.get('revenue_stats_to')
-        try:
-            revenue_stats_from = datetime.strptime(revenue_stats_from_str, '%Y-%m-%d')
-            revenue_stats_to = datetime.strptime(revenue_stats_to_str, '%Y-%m-%d')
-        except:
-            return Response(data={"error_msg": "cannot be left blank"},
-                            status=status.HTTP_400_BAD_REQUEST)
+            # Tính tổng doanh thu của cửa hàng trong tháng đó
+            monthly_total_revenue = sum([order_detail.unit_price * order_detail.quantity
+                                         for order_detail in order_details])
 
-        # Lấy danh sách tất cả các order detail trong quý đó
-        order_details = OrderDetail.objects.filter(order__created_date__range=[revenue_stats_from, revenue_stats_to])
+            # Thêm thống kê vào danh sách
+            monthly_stats.append({
+                "month": f"{year_num}-{month_num:02d}",
+                "total_revenue": monthly_total_revenue
+            })
 
-        # Tạo danh sách các sản phẩm
-        items = {}
-        for order_detail in order_details:
-            food = order_detail.food
-            menu_item = food.menu_item
-            item_id = food.id
-            item_name = food.name
-            item_price = food.price
-            quantity = order_detail.quantity
-
-            # Tính tổng doanh thu của sản phẩm
-            item_revenue = order_detail.unit_price * quantity
-
-            # Tạo một key cho sản phẩm nếu chưa tồn tại
-            if item_id not in items:
-                items[item_id] = {
-                    "food_id": item_id,
-                    "food_name": item_name,
-                    "food_price": item_price,
-                    "quantity": quantity,
-                    "revenue": item_revenue,
-                }
-            else:
-                # Cập nhật số lượng và doanh thu của sản phẩm
-                items[item_id]["quantity"] += quantity
-                items[item_id]["revenue"] += item_revenue
-
-            # Nếu sản phẩm thuộc vào một danh mục, thêm danh mục vào sản phẩm
-            if menu_item:
-                if "menu_item_id" not in items[item_id]:
-                    items[item_id]["menu_item_id"] = menu_item.id
-                    items[item_id]["menu_item_name"] = menu_item.name
-
-                # Tính tổng doanh thu của danh mục
-                if menu_item.id not in items:
-                    items[menu_item.id] = {
-                        "menu_item_id": menu_item.id,
-                        "menu_item_name": menu_item.name,
-                        "revenue": item_revenue,
-                    }
-                else:
-                    items[menu_item.id]["revenue"] += item_revenue
-
-        # Sắp xếp danh sách sản phẩm theo doanh thu giảm dần
-        items_sorted = sorted(items.values(), key=(lambda x: x['revenue']), reverse=True)
-        # Tính tổng doanh thu của quý
-        total_revenue = sum(item['revenue'] for item in items_sorted)
-
-        # Tạo danh sách kết quả trả về
-        result = {
-            # "quarter": quarter_str,
-            "start_date": revenue_stats_from,
-            "end_date": revenue_stats_to,
-            "total_revenue": total_revenue,
-            "items": items_sorted,
-        }
-
-        return Response(data=result, status=status.HTTP_200_OK)
+            # Trả về kết quả
+            return Response(data={
+                "total_revenue": total_revenue,
+                "items": items,
+                "menu_items": menu_items,
+                "monthly_stats": monthly_stats
+            }, status=status.HTTP_200_OK)
 
 
 class RevenueStatsYear(APIView):
@@ -1145,66 +1146,77 @@ class RevenueStatsYear(APIView):
     def post(self, request):
         year_str = request.data.get('year')
         try:
-            year = datetime.strptime(year_str, '%Y')
+            year = int(year_str)
         except:
             return Response(data={"error_msg": "Invalid year format. Please use 'YYYY' format."},
                             status=status.HTTP_400_BAD_REQUEST)
 
         # Lấy danh sách tất cả các order detail trong năm đó
-        order_details = OrderDetail.objects.filter(order__created_date__year=year.year)
+        order_details = OrderDetail.objects.filter(order__created_date__year=year)
 
-        # Tạo danh sách các sản phẩm và danh mục sản phẩm
-        items = {}
-        menu_items = {}
+        # Tính tổng doanh thu của cửa hàng trong năm đó
+        total_revenue = sum([order_detail.unit_price * order_detail.quantity
+                             for order_detail in order_details])
+
+        # Tạo danh sách các sản phẩm
+        items = []
         for order_detail in order_details:
-            food = order_detail.food
-            menu_item = food.menu_item
-            item_id = food.id
-            item_name = food.name
-            item_price = food.price
-            quantity = order_detail.quantity
+            item = {
+                "food_id": order_detail.food.id,
+                "food_name": order_detail.food.name,
+                "food_price": order_detail.food.price,
+                "quantity": order_detail.quantity
+            }
 
-            # Tính tổng doanh thu của sản phẩm
-            item_revenue = order_detail.unit_price * quantity
-
-            # Tạo một key cho sản phẩm nếu chưa tồn tại
-            if item_id not in items:
-                items[item_id] = {
-                    "food_id": item_id,
-                    "food_name": item_name,
-                    "food_price": item_price,
-                    "quantity": quantity,
-                    "revenue": item_revenue,
-                }
-            else:
-                # Cập nhật số lượng và doanh thu của sản phẩm
-                items[item_id]["quantity"] += quantity
-                items[item_id]["revenue"] += item_revenue
-
-            # Nếu sản phẩm thuộc vào một danh mục, thêm danh mục vào sản phẩm
+            # Tìm kiếm danh mục của sản phẩm
+            menu_item = order_detail.food.menu_item
             if menu_item:
-                if "menu_item_id" not in items[item_id]:
-                    items[item_id]["menu_item_id"] = menu_item.id
-                    items[item_id]["menu_item_name"] = menu_item.name
+                item["menu_item_id"] = menu_item.id
+                item["menu_item_name"] = menu_item.name
 
-                # Tính tổng doanh thu của danh mục
-                if menu_item.id not in menu_items:
-                    menu_items[menu_item.id] = {
-                        "menu_item_id": menu_item.id,
-                        "menu_item_name": menu_item.name,
-                        "revenue": item_revenue,
-                    }
-                else:
-                    menu_items[menu_item.id]["revenue"] += item_revenue
+            # Thêm sản phẩm vào danh sách
+            items.append(item)
 
-        # Sắp xếp danh sách sản phẩm theo doanh thu giảm dần
-        items_sorted = sorted(items.values(), key=lambda x: x["revenue"], reverse=True)
+        # Tạo danh sách các danh mục
+        menu_items = []
+        for order_detail in order_details:
+            menu_item = order_detail.food.menu_item
+            if menu_item:
+                menu_item_total = sum([order.unit_price * order.quantity
+                                       for order in order_details
+                                       if order.food.menu_item == menu_item])
+                menu_item_dict = {
+                    "menu_item_id": menu_item.id,
+                    "menu_item_name": menu_item.name,
+                    "total_revenue": menu_item_total
+                }
+                # Thêm danh mục vào danh sách
+                menu_items.append(menu_item_dict)
 
-        # Sắp xếp danh sách danh mục sản phẩm theo doanh thu giảm dần
-        menu_items_sorted = sorted(menu_items.values(), key=lambda x: x["revenue"], reverse=True)
+        # Tạo danh sách các tháng trong năm
+        months = [(i, year) for i in range(1, 13)]
+
+        # Tạo danh sách thống kê theo từng tháng
+        monthly_stats = []
+        for month_num, year_num in months:
+            # Lấy danh sách tất cả các order detail trong tháng đó
+            order_details = OrderDetail.objects.filter(order__created_date__year=year_num,
+                                                       order__created_date__month=month_num)
+
+            # Tính tổng doanh thu của cửa hàng trong tháng đó
+            monthly_total_revenue = sum([order_detail.unit_price * order_detail.quantity
+                                         for order_detail in order_details])
+
+            # Thêm thống kê vào danh sách
+            monthly_stats.append({
+                "month": f"{year_num}-{month_num:02d}",
+                "total_revenue": monthly_total_revenue
+            })
 
         # Trả về kết quả
         return Response(data={
-            "items": items_sorted,
-            "menu_items": menu_items_sorted,
+            "total_revenue": total_revenue,
+            "items": items,
+            "menu_items": menu_items,
+            "monthly_stats": monthly_stats
         }, status=status.HTTP_200_OK)

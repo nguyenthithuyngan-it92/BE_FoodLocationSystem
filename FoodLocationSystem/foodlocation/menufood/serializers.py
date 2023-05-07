@@ -44,7 +44,7 @@ class MenuItemSerializer2(serializers.ModelSerializer):
 
 class FoodSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField(source='image_food')
-    tags = TagSerializer(many=True)
+    tags = TagSerializer(many=True, read_only=True)
     menu_item = MenuItemSerializer2()
 
     def get_image(self, food):

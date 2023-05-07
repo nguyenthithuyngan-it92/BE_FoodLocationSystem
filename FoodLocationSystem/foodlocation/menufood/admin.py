@@ -17,42 +17,6 @@ from django.template.response import TemplateResponse
 class FoodLocationAppAdminSite(admin.AdminSite):
     site_header = 'Trang quản lý địa điểm ăn uống'
 
-    # def get_urls(self):
-    #     return [
-    #         path('stats/', self.stats_view)
-    #     ] + super().get_urls()
-    #
-    # def stats_view(self, request):
-    #     if not request.user.is_superuser:
-    #         raise HttpResponseForbidden()
-    #     else:
-    #         #Lấy danh sách các cửa hàng
-    #         store_locations = User.objects.filter(is_active=True, is_verify=True, user_role=1)
-    #
-    #         #Lấy ngày hiện tại
-    #         today = date.today()
-    #
-    #         #Tính toán theo tháng, quý và năm
-    #         month_data = OrderDetail.objects.filter(order__created_date__month=today.month).\
-    #                     annotate(month=TruncMonth('order__created_date')).\
-    #                     values('month').annotate(total=Sum('quantity'))
-    #         quarter_data = OrderDetail.objects.filter(order__created_date__quarter=(today.month - 1) // 3 + 1).\
-    #                     annotate(quarter=TruncQuarter('order__created_date')).\
-    #                     values('quarter').annotate(total=Sum('quantity'))
-    #         year_data = OrderDetail.objects.filter(order__created_date__year=today.year).\
-    #                     annotate(year=TruncYear('order__created_date')).\
-    #                     values('year').annotate(total=Sum('quantity'))
-    #
-    #         #Hiển thị thông tin trên trang HTML
-    #         context = {
-    #             'title': "Thống kê tần suất bán hàng, tổng sản phẩm kinh doanh của các cửa hàng",
-    #             'store_locations': store_locations,
-    #             'month_data': month_data,
-    #             'quarter_data': quarter_data,
-    #             'year_data': year_data,
-    #         }
-    #     return TemplateResponse(request, 'admin/stats.html', context)
-
 
 class UserAdmin(admin.ModelAdmin):
     list_display = ['pk', 'image', 'username', 'first_name', 'last_name', 'email',
