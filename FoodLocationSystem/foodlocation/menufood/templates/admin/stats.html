@@ -1,0 +1,17 @@
+{% extends 'admin/base_site.html' %}
+
+{% block content %}
+<h1>THỐNG KÊ TẦN SUẤT BÁN HÀNG</h1>
+<ul>
+    {% for o in count_order_store %}
+    <li style="font-size: 20px; margin: 10px">Số đơn hàng của cửa hàng<strong> {{ o.store__name_store }}</strong> là {{ o.total_orders }}</li>
+    {% endfor %}
+</ul>
+<br/>
+<h1>THỐNG KÊ SỐ SẢN PHẨM CỦA CỬA HÀNG</h1>
+<ul>
+    {% for s in sum_food_store %}
+    <li style="font-size: 20px; margin: 10px">Số món ăn của cửa hàng<strong> {{ s.name_store }}</strong> là {{ s.total_products }}</li>
+    {% endfor %}
+</ul>
+{% endblock %}
