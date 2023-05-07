@@ -1,21 +1,36 @@
 from django.contrib import admin
-from .models import MenuItem, Food, User, Tag, PaymentMethod, Subcribes, OrderDetail
+from .models import MenuItem, Food, User, Tag, PaymentMethod, Subcribes, Order, OrderDetail
 from django.contrib.auth.models import Permission, Group
 from django import forms
 from ckeditor_uploader.widgets import CKEditorUploadingWidget
 from django.utils.html import mark_safe
 from . import cloud_path
 from django.urls import path
-from django.http import HttpResponseForbidden
-from django.db.models import Count, Sum
-from django.db.models.functions import TruncMonth, TruncQuarter, TruncYear
-from datetime import date
 from django.template.response import TemplateResponse
+from django.db.models import Count
 
 
 # cập nhật trang thống kê
 class FoodLocationAppAdminSite(admin.AdminSite):
     site_header = 'Trang quản lý địa điểm ăn uống'
+
+    def get_urls(self):
+        return [
+           path('stats/', self.stats_view)
+       ] + super().get_urls()
+
+    def stats_view(self, request):
+        orders_by_store = (
+            Order.objects.filter(order_status=Order.SUCCESSED).values('store__name_store').annotate(total_orders=Count('id')).order_by('store__name_store')
+        )
+
+        sum_food_store = User.objects.filter(user_role=User.STORE) \
+            .annotate(total_products=Count('menuitem_store__menuitem_food__id'))
+
+        return TemplateResponse(request, 'admin/stats.html', {
+            'count_order_store': orders_by_store,
+            'sum_food_store': sum_food_store
+        })
 
 
 class UserAdmin(admin.ModelAdmin):

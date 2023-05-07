@@ -1,5 +1,6 @@
-import calendar
 
+from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets, permissions, generics, parsers, status
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action, permission_classes
@@ -24,15 +25,22 @@ import json
 from .perms import CommentOwner
 from django.db.models import Count
 from django.core.mail import send_mail, EmailMessage
-from datetime import datetime, timedelta
+import json
+import time
+import hmac
+import hashlib
+import http.client
+from django.http import JsonResponse
 
 
+# TAG
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.filter(active=True)
     serializer_class = TagSerializer
     pagination_class = paginators.BaseCustomPaginator
 
 
+# GET LIST FOOD
 class FoodViewSet(viewsets.ViewSet, generics.RetrieveAPIView, generics.ListAPIView):
     queryset = Food.objects.filter(active=True)
     serializer_class = FoodSerializer
@@ -140,6 +148,7 @@ class FoodViewSet(viewsets.ViewSet, generics.RetrieveAPIView, generics.ListAPIVi
     #     return Response(serializer.dat, status=status.HTTP_400_BAD_REQUEST)
 
 
+# USER
 class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
     queryset = User.objects.filter(is_active=True)
     serializer_class = UserSerializer
@@ -163,6 +172,7 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
         return Response(UserSerializer(u, context={'request': request}).data, status=status.HTTP_200_OK)
 
 
+# STORE
 class StoreViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
     serializer_class = StoreSerializer
 
@@ -240,6 +250,7 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIV
             return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
+    # GET LIST MENU STORE - MANAGEMENT
     @action(methods=['get'], detail=False, url_path='menu-management')
     def get_menu_store(self, request):
         user = request.user
@@ -257,6 +268,7 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIV
 
         return Response(MenuItemSerializer(menu_items, many=True).data, status=status.HTTP_200_OK)
 
+    # GET LIST FOOD STORE - MANAGEMENT
     @action(methods=['get'], detail=False, url_path='food-management')
     def get_food_store(self, request):
         user = request.user
@@ -277,60 +289,8 @@ class StoreViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIV
         except User.DoesNotExist:
             return Response({'error': 'Store not found.'}, status=404)
 
-        # Lấy tất cả các menu item của tất cả các store
-        # menu_items = MenuItem.objects.filter(store__in=store)
-        #
-        # # Lấy tất cả các food của tất cả các menu item
-        # foods = Food.objects.filter(menu_item__in=menu_items)
-        #
-        # data = {}
-        # try:
-        #     for s in store:
-        #         data[s.id] = {
-        #             'store': s.id,
-        #             'name_store': s.name_store,
-        #             'address': s.address,
-        #             'phone': s.phone,
-        #             'menu_items': []
-        #         }
-        #
-        #     # Đổ dữ liệu đơn hàng vào các store tương ứng
-        #     for menu in menu_items:
-        #         menu_dict = {
-        #             'id': menu.id,
-        #             'name': menu.name,
-        #             'active': menu.active,
-        #             'foods': []
-        #         }
-        #
-        #         # Thêm thông tin các order_detail vào đơn hàng
-        #         for food in foods:
-        #             if food.menu_item.id == menu.id:
-        #                 food_dict = {
-        #                     'id': food.id,
-        #                     'name': food.name,
-        #                     'active': food.active,
-        #                     'price': food.price,
-        #                     'image': food.image_food.url if food.image_food else None,
-        #                     'description': food.description,
-        #                     'start_time': str(food.start_time),
-        #                     'end_time': str(food.end_time)
-        #                 }
-        #                 menu_dict['foods'].append(food_dict)
-        #
-        #         data[menu.store.id]['menu_items'].append(menu_dict)
-        #
-        #     return Response({"message": f"Thông tin chi tiết của cửa hàng {user.name_store}",
-        #                      "statusCode": status.HTTP_200_OK, "data": data},
-        #                     status=status.HTTP_200_OK)
-        #     if not data:
-        #         return Response({"message": f"Không có thông tin của cửa hàng {user.name_store}.",
-        #                          "statusCode": status.HTTP_404_NOT_FOUND},
-        #                         status=status.HTTP_404_NOT_FOUND)
-        # except Exception as e:
-        #     return Response({'error': str(e)})
 
-
+# MENU_ITEM
 class MenuItemViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.DestroyAPIView):
     serializer_class = MenuItemSerializer
 
@@ -421,7 +381,8 @@ class MenuItemViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateA
     #
     #     return Response(FoodSerializer(food, many=True, context={'request': request}).data, status=status.HTTP_200_OK)
 
-    # thiết lập trạng thái menu (active)
+    # SET ACTIVE MENU (active)
+
     @action(methods=['post'], detail=True, url_path='set-status-menu')
     def set_status_menu(self, request, pk):
         user = request.user
@@ -463,6 +424,7 @@ class MenuItemViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateA
                         status=status.HTTP_404_NOT_FOUND)
 
 
+# FOOD (ADD, EDIT, DELETE)
 class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.UpdateAPIView, generics.DestroyAPIView):
     serializer_class = FoodSerializer()
     queryset = Food.objects.all()
@@ -516,6 +478,7 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
                                         status=status.HTTP_404_NOT_FOUND)
                     food.tags.add(tag)
 
+            # LẤY THÔNG TIN FOLLOWER CỦA STORE ĐỂ GỬI EMAIL
             # followers = Subcribes.objects.filter(store=user.id)
             # if followers:
             #     for f in followers:
@@ -588,7 +551,7 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
         except Food.DoesNotExist:
             return Response({'error': 'Không tìm thấy món ăn!'}, status=status.HTTP_404_NOT_FOUND)
 
-    # thiết lập trạng thái món ăn (active)
+    # SET ACTIVE FOOD (active)
     @action(methods=['post'], detail=True, url_path='set-status-food')
     def set_status_food(self, request, pk):
         user = request.user
@@ -624,6 +587,7 @@ class FoodStoreViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.Update
                         status=status.HTTP_404_NOT_FOUND)
 
 
+# ORDER
 class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAPIView, generics.ListAPIView):
     serializer_class = OrderSerializer
     queryset = Order.objects.all()
@@ -653,6 +617,8 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
                     return Response({"message": "Món ăn nào được đặt không hợp lệ!"},
                                     status=status.HTTP_400_BAD_REQUEST)
                 if food.active == 0:
+                    OrderDetail.objects.filter(order_id=order.id).delete()
+                    Order.objects.filter(id=order.id).delete()
                     return Response({"message": f"Món ăn {food.name} hiện tại không còn bán!"},
                                     status=status.HTTP_400_BAD_REQUEST)
                 if food.menu_item.store != order.store:
@@ -670,51 +636,51 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     # xem chi tiết đơn hàng cho user (==chưa dùng bên FE==)
-    def retrieve(self, request, pk):
-        try:
-            order = Order.objects.get(id=pk)
-            user = request.user
+    # def retrieve(self, request, pk):
+    #     try:
+    #         order = Order.objects.get(id=pk)
+    #         user = request.user
+    #
+    #         if user.user_role == User.STORE and order.store != user \
+    #                 and order.user != user and user.user_role == User.USER:
+    #             return Response({'error': 'Forbidden', 'message': 'Bạn không có quyền xem đơn hàng này!'},
+    #                             status=status.HTTP_403_FORBIDDEN)
+    #
+    #         data = {
+    #             'id': order.id,
+    #             'created_date': order.created_date,
+    #             'amount': order.amount,
+    #             'delivery_fee': order.delivery_fee,
+    #             'order_status': order.order_status,
+    #             'receiver_name': order.receiver_name,
+    #             'receiver_phone': order.receiver_phone,
+    #             'receiver_address': order.receiver_address,
+    #             'payment_date': order.payment_date,
+    #             'payment_status': order.payment_status,
+    #             'paymentmethod': order.paymentmethod.name,
+    #             'user': order.user.id,
+    #             'store': order.store.id,
+    #             'order_details': []
+    #         }
+    #
+    #         for order_detail in order.orderdetail_set.all():
+    #             order_detail_data = {
+    #                 'unit_price': order_detail.unit_price,
+    #                 'quantity': order_detail.quantity,
+    #                 'food': {
+    #                     'id': order_detail.food.id,
+    #                     'name': order_detail.food.name,
+    #                     'price': order_detail.food.price,
+    #                     'menu_item': order_detail.food.menu_item.name,
+    #                 }
+    #             }
+    #             data['order_details'].append(order_detail_data)
+    #
+    #         return Response(data, status=status.HTTP_200_OK)
+    #     except Order.DoesNotExist:
+    #         return Response({'error': 'Không tìm thấy đơn hàng!'}, status=status.HTTP_404_NOT_FOUND)
 
-            if user.user_role == User.STORE and order.store != user \
-                    and order.user != user and user.user_role == User.USER:
-                return Response({'error': 'Forbidden', 'message': 'Bạn không có quyền xem đơn hàng này!'},
-                                status=status.HTTP_403_FORBIDDEN)
-
-            data = {
-                'id': order.id,
-                'created_date': order.created_date,
-                'amount': order.amount,
-                'delivery_fee': order.delivery_fee,
-                'order_status': order.order_status,
-                'receiver_name': order.receiver_name,
-                'receiver_phone': order.receiver_phone,
-                'receiver_address': order.receiver_address,
-                'payment_date': order.payment_date,
-                'payment_status': order.payment_status,
-                'paymentmethod': order.paymentmethod.name,
-                'user': order.user.id,
-                'store': order.store.id,
-                'order_details': []
-            }
-
-            for order_detail in order.orderdetail_set.all():
-                order_detail_data = {
-                    'unit_price': order_detail.unit_price,
-                    'quantity': order_detail.quantity,
-                    'food': {
-                        'id': order_detail.food.id,
-                        'name': order_detail.food.name,
-                        'price': order_detail.food.price,
-                        'menu_item': order_detail.food.menu_item.name,
-                    }
-                }
-                data['order_details'].append(order_detail_data)
-
-            return Response(data, status=status.HTTP_200_OK)
-        except Order.DoesNotExist:
-            return Response({'error': 'Không tìm thấy đơn hàng!'}, status=status.HTTP_404_NOT_FOUND)
-
-    # lấy thông tin các đơn hàng của user
+    # lấy thông tin các đơn hàng của user đăng nhập vào
     def list(self, request):
         try:
             user = request.user
@@ -732,7 +698,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
         except Order.DoesNotExist:
             return Response({'error': 'Bạn không có đơn hàng nào!'}, status=status.HTTP_404_NOT_FOUND)
 
-    # lấy danh sách các hóa đơn chưa được xác nhận cho cửa hàng
+    # GET LIST ORDER - STATUS=PENDING
     @action(methods=['get'], detail=False, url_path='pending-order')
     def get_list_pending(self, request):
         user = self.request.user
@@ -750,7 +716,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
         except Order.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-    # xác nhận đơn hàng
+    # SET ORDER_STATUS xác nhận đơn hàng
     @action(methods=['post'], detail=True, url_path='confirm-order')
     def confirm_order(self, request, pk):
         user = request.user
@@ -811,6 +777,7 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
         return Response({'message': f'Đơn hàng {pk} xác nhận không thành công. Vui lòng thử lại!'},
                         status=status.HTTP_404_NOT_FOUND)
 
+    # GET LIST ORDER - STATUS=ACCEPTED
     @action(methods=['get'], detail=False, url_path='accepted-order')
     def get_list_accepted(self, request):
         user = self.request.user
@@ -885,12 +852,14 @@ class OrderViewSet(viewsets.ViewSet, generics.CreateAPIView, generics.RetrieveAP
     #                     status=status.HTTP_404_NOT_FOUND)
 
 
+# ORDER_DETAIL
 class OrderDetailViewSet(viewsets.ViewSet, generics.RetrieveUpdateDestroyAPIView):
     queryset = OrderDetail.objects.all()
     serializer_class = OrderDetailSerializer
     lookup_field = 'id'
 
 
+# COMMENT
 class CommentViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAPIView, generics.UpdateAPIView):
     queryset = Comment.objects.filter(active=True)
     serializer_class = CommentSerializer
@@ -910,7 +879,7 @@ class SubcribeViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAP
             return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
-    # lấy danh sách subcribes theo từng cửa hàng
+    # lấy danh sách subcribes theo từng cửa hàng - chưa dùng
     @action(methods=['get'], detail=True)
     def get_sub_by_store_id(self, request, pk):
         try:
@@ -971,6 +940,7 @@ class SubcribeViewSet(viewsets.ViewSet, generics.ListAPIView, generics.DestroyAP
             return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+# GET LIST FOOD BY STORE
 class FoodByStoreViewSet(viewsets.ViewSet):
     serializer_class = FoodSerializer
 
@@ -991,6 +961,7 @@ class FoodByStoreViewSet(viewsets.ViewSet):
             return Response({'error': 'Store not found.'}, status=404)
 
 
+# PAYMENT_METHOD
 class PaymentmethodViewSet(viewsets.ViewSet, generics.ListAPIView):
     serializer_class = PaymentMethodSerializer
     queryset = PaymentMethod.objects.all()
@@ -1220,3 +1191,71 @@ class RevenueStatsYear(APIView):
             "menu_items": menu_items,
             "monthly_stats": monthly_stats
         }, status=status.HTTP_200_OK)
+
+@csrf_exempt
+def create_payment(request):
+    json_data = request.body.decode('utf-8')
+    data = json.loads(json_data)
+
+    order_info = data['orderInfo']
+    redirect_url = data['redirectUrl']
+    ipn_url = data['ipnUrl']
+    amount = data['amount']
+    extra_data = data['extraData']
+    # order_id = data['orderId']
+
+    partner_code = "MOMO"
+    access_key = "F8BBA842ECF85"
+    secret_key = "K951B6PE1waDMi640xX08PD3vg6EkVlz"
+    request_id = partner_code + str(int(time.time()))
+    order_id = request_id
+    # order_info = "pay with MoMo"
+    # redirect_url = "https://momo.vn/return"
+    # ipn_url = "https://callback.url/notify"
+    # amount = "50000"
+    request_type = "captureWallet"
+    # extra_data = ""
+
+    # before sign HMAC SHA256 with format
+    # accessKey=$accessKey&amount=$amount&extraData=$extraData&ipnUrl=$ipnUrl&orderId=$orderId&orderInfo=$orderInfo&partnerCode=$partnerCode&redirectUrl=$redirectUrl&requestId=$requestId&requestType=$requestType
+    raw_signature = "accessKey=" + access_key + "&amount=" + amount + "&extraData=" + extra_data + "&ipnUrl=" + ipn_url + "&orderId=" + order_id + "&orderInfo=" + order_info + "&partnerCode=" + partner_code + "&redirectUrl=" + redirect_url + "&requestId=" + request_id + "&requestType=" + request_type
+
+    # signature
+    signature = hmac.new(secret_key.encode('utf-8'), raw_signature.encode('utf-8'), hashlib.sha256).hexdigest()
+
+    # json object send to MoMo endpoint
+    data = {
+        'partnerCode': partner_code,
+        'accessKey': access_key,
+        'requestId': request_id,
+        'amount': amount,
+        'orderId': order_id,
+        'orderInfo': order_info,
+        'redirectUrl': redirect_url,
+        'ipnUrl': ipn_url,
+        'extraData': extra_data,
+        'requestType': request_type,
+        'signature': signature,
+        'lang': 'en'
+    }
+    json_data = json.dumps(data)
+
+    # create the HTTP request
+    conn = http.client.HTTPSConnection("test-payment.momo.vn")
+    headers = {
+        'Content-Type': 'application/json',
+        'Content-Length': len(json_data)
+    }
+    conn.request("POST", "/v2/gateway/api/create", json_data, headers)
+
+    # get the response
+    res = conn.getresponse()
+
+    # read the response body
+    response_data = res.read().decode("utf-8")
+    pay_url = json.loads(response_data)['payUrl']
+
+    conn.close()
+
+    return JsonResponse({ "status": status.HTTP_200_OK, "message": 'success', "data": { "payURL": pay_url}})
+
